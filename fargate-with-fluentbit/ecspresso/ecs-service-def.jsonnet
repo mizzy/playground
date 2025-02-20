@@ -23,7 +23,11 @@ local tfstate = std.native('tfstate');
     awsvpcConfiguration: {
       assignPublicIp: 'DISABLED',
       securityGroups: [tfstate('aws_security_group.httpd.id')],
-      subnets: [tfstate('aws_subnet.private_a.id'), tfstate('aws_subnet.private_c.id')],
+      subnets: [
+        tfstate('module.vpc.aws_subnet.private["ap-northeast-1a"].id'),
+        tfstate('module.vpc.aws_subnet.private["ap-northeast-1c"].id'),
+        tfstate('module.vpc.aws_subnet.private["ap-northeast-1d"].id'),
+      ],
     },
   },
   placementConstraints: [],

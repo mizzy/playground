@@ -27,7 +27,7 @@ resource "aws_iam_role_policy_attachment" "httpd" {
 
 resource "aws_lb" "httpd" {
   name            = "httpd"
-  subnets         = [aws_subnet.public_a.id, aws_subnet.public_c.id]
+  subnets         = [for i in module.vpc.public_subnets : i.id]
   security_groups = [aws_security_group.httpd.id]
 }
 
@@ -42,14 +42,14 @@ resource "aws_lb_listener" "httpd" {
 }
 
 resource "aws_lb_target_group" "httpd" {
-  vpc_id      = aws_vpc.example.id
+  vpc_id      = module.vpc.id
   target_type = "ip"
   port        = 80
   protocol    = "HTTP"
 }
 
 resource "aws_security_group" "httpd" {
-  vpc_id = aws_vpc.example.id
+  vpc_id = module.vpc.id
 
   ingress {
     from_port   = 0
