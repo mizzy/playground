@@ -1,0 +1,10 @@
+region: ap-northeast-1
+cluster: example
+service: httpd
+service_definition: ecs-service-def.jsonnet
+task_definition: ecs-task-def.jsonnet
+timeout: 5m
+plugins:
+  - name: tfstate
+    config:
+      path: ../terraform/terraform.tfstate
