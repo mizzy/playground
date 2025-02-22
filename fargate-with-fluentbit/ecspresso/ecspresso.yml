@@ -3,7 +3,7 @@ cluster: example
 service: httpd
 service_definition: ecs-service-def.jsonnet
 task_definition: ecs-task-def.jsonnet
-timeout: 5m
+timeout: 10m
 plugins:
   - name: tfstate
     config:

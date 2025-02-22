@@ -25,6 +25,11 @@ resource "aws_iam_role_policy_attachment" "httpd" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
+resource "aws_iam_role_policy_attachment" "httpd_ssm" {
+  policy_arn = aws_iam_policy.ssm.arn
+  role       = aws_iam_role.httpd.name
+}
+
 resource "aws_lb" "httpd" {
   name            = "httpd"
   subnets         = [for i in module.vpc.public_subnets : i.id]
