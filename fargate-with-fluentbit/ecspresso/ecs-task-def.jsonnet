@@ -1,6 +1,7 @@
 local tfstate = std.native('tfstate');
 {
   containerDefinitions: [
+    // main container
     {
       name: 'httpd',
       image: 'httpd:2.4',
@@ -38,8 +39,10 @@ local tfstate = std.native('tfstate');
         },
       ],
     },
+
+    // log-router container
     {
-      name: 'log_router',
+      name: 'log-router',
       image: 'amazon/aws-for-fluent-bit:latest',
       essential: true,
       cpu: 32,
@@ -52,10 +55,11 @@ local tfstate = std.native('tfstate');
         options: {
           'awslogs-group': tfstate('aws_cloudwatch_log_group.httpd.name'),
           'awslogs-region': 'ap-northeast-1',
-          'awslogs-stream-prefix': 'log_router',
+          'awslogs-stream-prefix': 'log-router',
         },
       },
     },
+
   ],
   cpu: '512',
   memory: '1024',
