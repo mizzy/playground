@@ -2,9 +2,9 @@ resource "aws_s3_bucket" "fluentbit" {
   bucket = "fluentbit.mizzy.org"
 }
 
-resource "aws_s3_object" "datadog_output" {
+resource "aws_s3_object" "fluentbit_conf" {
   bucket = aws_s3_bucket.fluentbit.bucket
-  key    = "/datadog-output.conf"
-  source = "datadog-output.conf"
-  etag   = filemd5("datadog-output.conf")
+  key    = "/fluentbit.conf"
+  source = "fluentbit.conf"
+  etag   = filemd5("fluentbit.conf")
 }

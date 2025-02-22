@@ -48,7 +48,7 @@ local tfstate = std.native('tfstate');
       environment: [
         {
           name: 'aws_fluent_bit_init_s3_1',
-          value: tfstate('aws_s3_bucket.fluentbit.arn') + '/datadog-output.conf',
+          value: tfstate('aws_s3_object.fluentbit_conf.arn'),
         },
       ],
       secrets: [
