@@ -15,19 +15,6 @@ local tfstate = std.native('tfstate');
       links: [],
       logConfiguration: {
         logDriver: 'awsfirelens',
-        options: {
-          Name: 'datadog',
-          Host: 'http-intake.logs.ap1.datadoghq.com',
-          TLS: 'on',
-          dd_service: 'my-service',
-          dd_source: 'my-source',
-          dd_tags: 'env:dev',
-          provider: 'ecs',
-        },
-        secretOptions: [{
-          name: 'apikey',
-          valueFrom: '/dev/datadog_api_key',
-        }],
       },
       mountPoints: [],
       volumesFrom: [],
@@ -43,7 +30,7 @@ local tfstate = std.native('tfstate');
     // log-router container
     {
       name: 'log-router',
-      image: 'amazon/aws-for-fluent-bit:latest',
+      image: 'public.ecr.aws/aws-observability/aws-for-fluent-bit:init-latest',
       essential: true,
       cpu: 32,
       memoryReservation: 50,
@@ -58,6 +45,18 @@ local tfstate = std.native('tfstate');
           'awslogs-stream-prefix': 'log-router',
         },
       },
+      environment: [
+        {
+          name: 'aws_fluent_bit_init_s3_1',
+          value: tfstate('aws_s3_bucket.fluentbit.arn') + '/datadog-output.conf',
+        },
+      ],
+      secrets: [
+        {
+          name: 'DD_API_KEY',
+          valueFrom: tfstate('aws_ssm_parameter.datadog_api_key.arn'),
+        },
+      ],
     },
 
   ],

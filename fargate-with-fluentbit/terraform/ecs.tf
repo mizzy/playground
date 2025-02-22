@@ -24,6 +24,15 @@ data "aws_iam_policy_document" "ssm" {
     actions   = ["ssm:*"]
     resources = [aws_ssm_parameter.datadog_api_key.arn]
   }
+
+  statement {
+    effect  = "Allow"
+    actions = ["s3:*"]
+    resources = [
+      aws_s3_bucket.fluentbit.arn,
+      "${aws_s3_bucket.fluentbit.arn}/*",
+    ]
+  }
 }
 
 resource "aws_iam_policy" "ssm" {
