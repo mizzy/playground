@@ -10,6 +10,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
+	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -56,11 +57,17 @@ func main() {
 		}
 		hashedStr := string(hashed)
 
+		// UUID を生成し、UserId にセット
+		userId := uuid.New().String()
+
 		// DynamoDB に登録するアイテム
 		item := map[string]types.AttributeValue{
-			"username": &types.AttributeValueMemberS{Value: username},
-			"password_hash": &types.AttributeValueMemberS{
+			"UserName": &types.AttributeValueMemberS{Value: username},
+			"PasswordHash": &types.AttributeValueMemberS{
 				Value: hashedStr,
+			},
+			"UserId": &types.AttributeValueMemberS{
+				Value: userId,
 			},
 		}
 

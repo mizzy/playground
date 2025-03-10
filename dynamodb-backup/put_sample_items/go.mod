@@ -5,6 +5,7 @@ go 1.23.5
 require (
 	github.com/aws/aws-sdk-go-v2/config v1.29.9
 	github.com/aws/aws-sdk-go-v2/service/dynamodb v1.41.1
+	github.com/google/uuid v1.6.0
 	golang.org/x/crypto v0.36.0
 )
 
