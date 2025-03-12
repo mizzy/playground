@@ -144,8 +144,7 @@ data "aws_iam_policy_document" "terraform" {
       "kms:GenerateDataKey",
       "kms:RetireGrant",
     ]
-    resources = ["*"]
-    # resources = ["arn:aws:backup:ap-northeast-1:019115212452:key/*"]
+    resources = ["arn:aws:kms:ap-northeast-1:019115212452:key/*"]
   }
 
   # Ref https://docs.aws.amazon.com/aws-backup/latest/devguide/create-a-vault.html
