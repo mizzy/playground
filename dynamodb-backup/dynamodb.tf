@@ -23,5 +23,5 @@ resource "aws_dynamodb_table" "user" {
     projection_type = "ALL"
   }
 
-  deletion_protection_enabled = true
+  deletion_protection_enabled = false
 }
