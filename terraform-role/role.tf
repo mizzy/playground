@@ -25,7 +25,6 @@ resource "aws_iam_policy" "terraform" {
 resource "aws_iam_role_policy_attachment" "terraform" {
   role       = aws_iam_role.terraform.name
   policy_arn = aws_iam_policy.terraform.arn
-
 }
 
 data "aws_iam_policy_document" "terraform" {
@@ -47,7 +46,7 @@ data "aws_iam_policy_document" "terraform" {
     ]
 
     resources = [
-      "arn:aws:dynamodb:ap-northeast-1:019115212452:table/User",
+      "arn:aws:dynamodb:ap-northeast-1:${data.aws_caller_identity.current.account_id}:table/User",
     ]
   }
 
@@ -70,7 +69,8 @@ data "aws_iam_policy_document" "terraform" {
       "iam:ListInstanceProfilesForRole",
     ]
     resources = [
-      "arn:aws:iam::019115212452:role/dynamodb-backup-role",
+      "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/dynamodb-backup-role",
+      "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/service-role/AWSBackupDefaultServiceRole",
     ]
   }
 
@@ -89,7 +89,7 @@ data "aws_iam_policy_document" "terraform" {
       "iam:ListPolicyVersions",
     ]
     resources = [
-      "arn:aws:iam::019115212452:policy/dynamodb-backup-role-policy",
+      "arn:aws:iam::${data.aws_caller_identity.current.account_id}:policy/dynamodb-backup-role-policy",
     ]
   }
 
@@ -103,12 +103,13 @@ data "aws_iam_policy_document" "terraform" {
       # for apply
       "backup:CreateBackupVault",
       "backup:TagResource",
+      "backup:UntagResource",
       # for destroy
       "backup:ListRecoveryPointsByBackupVault",
       "backup:DeleteBackupVault",
     ]
     resources = [
-      "arn:aws:backup:ap-northeast-1:019115212452:backup-vault:dynamodb-backup-vault",
+      "arn:aws:backup:ap-northeast-1:${data.aws_caller_identity.current.account_id}:backup-vault:dynamodb-backup-vault",
     ]
   }
 
@@ -120,6 +121,7 @@ data "aws_iam_policy_document" "terraform" {
       "backup:CreateBackupPlan",
       "backup:CreateBackupSelection",
       "backup:TagResource",
+      "backup:UntagResource",
       # for plan
       "backup:GetBackupPlan",
       "backup:GetBackupSelection",
@@ -127,9 +129,10 @@ data "aws_iam_policy_document" "terraform" {
       # for destroy
       "backup:DeleteBackupPlan",
       "backup:DeleteBackupSelection",
+      "backup:UpdateBackupPlan",
     ]
     resources = [
-      "arn:aws:backup:ap-northeast-1:019115212452:backup-plan:*",
+      "arn:aws:backup:ap-northeast-1:${data.aws_caller_identity.current.account_id}:backup-plan:*",
     ]
   }
 
@@ -144,7 +147,15 @@ data "aws_iam_policy_document" "terraform" {
       "kms:GenerateDataKey",
       "kms:RetireGrant",
     ]
-    resources = ["arn:aws:kms:ap-northeast-1:019115212452:key/*"]
+
+    condition {
+      test     = "StringLike"
+      variable = "kms:RequestAlias"
+      values   = ["alias/aws/backup"]
+    }
+
+    resources = ["arn:aws:kms:ap-northeast-1:${data.aws_caller_identity.current.account_id}:key/*"]
+    #resources = ["arn:aws:kms:ap-northeast-1:data.aws_caller_identity.current.account_id:key/5efb1276-a848-4010-83d6-ee2adad51564"]
   }
 
   # Ref https://docs.aws.amazon.com/aws-backup/latest/devguide/create-a-vault.html

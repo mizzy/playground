@@ -1,5 +1,6 @@
 resource "aws_backup_vault" "dynamodb" {
-  name          = "dynamodb-backup-vault"
+  name = "dynamodb-backup-vault"
+
   force_destroy = true
 }
 
@@ -9,7 +10,7 @@ resource "aws_backup_plan" "dynamodb" {
   rule {
     rule_name                    = "hourly-backup"
     target_vault_name            = aws_backup_vault.dynamodb.name
-    schedule                     = "cron(0 * * * ? *)"
+    schedule                     = "cron(0 12 * * ? *)"
     schedule_expression_timezone = "Asia/Tokyo"
     enable_continuous_backup     = true
 
