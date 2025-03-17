@@ -67,6 +67,9 @@ data "aws_iam_policy_document" "terraform" {
       "iam:DeleteRole",
       "iam:DetachRolePolicy",
       "iam:ListInstanceProfilesForRole",
+      "iam:PutRolePolicy",
+      "iam:GetRolePolicy",
+      "iam:DeleteRolePolicy",
     ]
     resources = [
       "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/dynamodb-backup-role",
@@ -87,6 +90,8 @@ data "aws_iam_policy_document" "terraform" {
       # for destroy
       "iam:DeletePolicy",
       "iam:ListPolicyVersions",
+      "iam:CreatePolicyVersion",
+      "iam:DeletePolicyVersion",
     ]
     resources = [
       "arn:aws:iam::${data.aws_caller_identity.current.account_id}:policy/dynamodb-backup-role-policy",
@@ -107,6 +112,9 @@ data "aws_iam_policy_document" "terraform" {
       # for destroy
       "backup:ListRecoveryPointsByBackupVault",
       "backup:DeleteBackupVault",
+      # Backup Vault Lock
+      "backup:PutBackupVaultLockConfiguration",
+      "backup:DeleteBackupVaultLockConfiguration",
     ]
     resources = [
       "arn:aws:backup:ap-northeast-1:${data.aws_caller_identity.current.account_id}:backup-vault:dynamodb-backup-vault",
