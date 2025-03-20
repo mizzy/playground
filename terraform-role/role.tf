@@ -118,6 +118,7 @@ data "aws_iam_policy_document" "terraform" {
     ]
     resources = [
       "arn:aws:backup:ap-northeast-1:${data.aws_caller_identity.current.account_id}:backup-vault:dynamodb-backup-vault",
+      "arn:aws:backup:ap-northeast-3:${data.aws_caller_identity.current.account_id}:backup-vault:dynamodb-backup-copy-vault",
     ]
   }
 
@@ -162,7 +163,10 @@ data "aws_iam_policy_document" "terraform" {
       values   = ["alias/aws/backup"]
     }
 
-    resources = ["arn:aws:kms:ap-northeast-1:${data.aws_caller_identity.current.account_id}:key/*"]
+    resources = [
+      "arn:aws:kms:ap-northeast-1:${data.aws_caller_identity.current.account_id}:key/*",
+      "arn:aws:kms:ap-northeast-3:${data.aws_caller_identity.current.account_id}:key/*"
+    ]
     #resources = ["arn:aws:kms:ap-northeast-1:data.aws_caller_identity.current.account_id:key/5efb1276-a848-4010-83d6-ee2adad51564"]
   }
 

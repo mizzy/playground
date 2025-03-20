@@ -4,18 +4,33 @@ resource "aws_backup_vault" "dynamodb" {
   force_destroy = true
 }
 
+resource "aws_backup_vault" "copy" {
+  name          = "dynamodb-backup-copy-vault"
+  provider      = aws.osaka
+  force_destroy = true
+}
+
+resource "aws_backup_vault_lock_configuration" "dynamodb" {
+  backup_vault_name = aws_backup_vault.dynamodb.name
+}
+
 resource "aws_backup_plan" "dynamodb" {
   name = "dynamodb-backup-plan"
 
   rule {
     rule_name                    = "hourly-backup"
     target_vault_name            = aws_backup_vault.dynamodb.name
-    schedule                     = "cron(0 12 * * ? *)"
+    schedule                     = "cron(0 * * * ? *)"
     schedule_expression_timezone = "Asia/Tokyo"
-    enable_continuous_backup     = true
+    #enable_continuous_backup     = true # default false
 
-    lifecycle {
-      delete_after = 30
+    #lifecycle {
+    #cold_storage_after = null
+    #delete_after       = null
+    #}
+
+    copy_action {
+      destination_vault_arn = aws_backup_vault.copy.arn
     }
   }
 }
@@ -53,7 +68,7 @@ data "aws_iam_policy_document" "dynamodb_backup_role_policy" {
     effect = "Allow"
     actions = [
       "dynamodb:DescribeTable",
-      "dynamodb:CreateBackup",
+      # "dynamodb:CreateBackup",
       "dynamodb:StartAwsBackupJob",
       "dynamodb:ListTagsOfResource",
     ]
@@ -75,22 +90,45 @@ data "aws_iam_policy_document" "dynamodb_backup_role_policy" {
   }
 
   statement {
+    sid = "BackupVaultCopyPermissions"
+    actions = [
+      "backup:CopyIntoBackupVault",
+    ]
+    resources = [aws_backup_vault.copy.arn]
+  }
+}
+
+/*
+data "aws_iam_policy_document" "backup" {
+  statement {
     sid    = "BackupVaultPermissions"
     effect = "Allow"
     actions = [
       "backup:DescribeBackupVault",
-      "backup:CopyIntoBackupVault",
     ]
     resources = [aws_backup_vault.dynamodb.arn]
   }
-}
 
-resource "aws_iam_policy" "dynamodb_backup_role_policy" {
+  statement {
+    sid = "BackupVaultCopyPermissions"
+    actions = [
+      "backup:CopyIntoBackupVault",
+    ]
+    resources = [aws_backup_vault.copy.arn]
+  }
+}
+*/
+
+resource "aws_iam_role_policy" "dynamodb_backup_role_policy" {
   name   = "dynamodb-backup-role-policy"
+  role   = aws_iam_role.dynamodb_backup_role.name
   policy = data.aws_iam_policy_document.dynamodb_backup_role_policy.json
 }
 
-resource "aws_iam_role_policy_attachment" "dynamic_backup_role" {
-  role       = aws_iam_role.dynamodb_backup_role.name
-  policy_arn = aws_iam_policy.dynamodb_backup_role_policy.arn
+/*
+resource "aws_iam_role_policy" "backup" {
+  name   = "backup"
+  policy = data.aws_iam_policy_document.backup.json
+  role   = aws_iam_role.dynamodb_backup_role.name
 }
+*/
