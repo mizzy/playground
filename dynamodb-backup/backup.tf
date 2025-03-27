@@ -5,7 +5,7 @@ resource "aws_backup_vault" "dynamodb" {
 }
 
 resource "aws_backup_vault" "copy" {
-  name          = "dynamodb-backup-copy-vault"
+  name          = "dynamodb-backup-vault"
   provider      = aws.osaka
   force_destroy = true
 }
@@ -71,6 +71,7 @@ data "aws_iam_policy_document" "dynamodb_backup_role_policy" {
       # "dynamodb:CreateBackup",
       "dynamodb:StartAwsBackupJob",
       "dynamodb:ListTagsOfResource",
+      "dynamodb:RestoreTableFromAwsBackup",
     ]
     resources = [
       aws_dynamodb_table.user.arn,

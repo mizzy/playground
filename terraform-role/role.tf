@@ -118,7 +118,7 @@ data "aws_iam_policy_document" "terraform" {
     ]
     resources = [
       "arn:aws:backup:ap-northeast-1:${data.aws_caller_identity.current.account_id}:backup-vault:dynamodb-backup-vault",
-      "arn:aws:backup:ap-northeast-3:${data.aws_caller_identity.current.account_id}:backup-vault:dynamodb-backup-copy-vault",
+      "arn:aws:backup:ap-northeast-3:${data.aws_caller_identity.current.account_id}:backup-vault:dynamodb-backup-vault",
     ]
   }
 
