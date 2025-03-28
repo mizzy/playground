@@ -75,6 +75,7 @@ data "aws_iam_policy_document" "dynamodb_backup_role_policy" {
     ]
     resources = [
       aws_dynamodb_table.user.arn,
+      replace(aws_dynamodb_table.user.arn, "ap-northeast-1", "ap-northeast-3"),
     ]
   }
 
