@@ -1,0 +1,10 @@
+{
+    "mcpServers": {
+      "weather-forecast": {
+        "command": "node",
+        "args": [
+          "/Users/mizzy/src/github.com/mizzy/playground/mcp-server-quickstart/build/index.js"
+        ]
+      }
+    }
+  }
