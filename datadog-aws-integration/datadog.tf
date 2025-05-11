@@ -4,7 +4,11 @@ resource "datadog_integration_aws_account" "foo" {
   aws_partition  = "aws"
 
   aws_regions {
-    include_only = ["ap-northeast-1"]
+    include_only = [
+      "us-east-1",
+      "ap-northeast-1",
+      "ap-northeast-3",
+    ]
   }
 
   auth_config {
