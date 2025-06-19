@@ -13,15 +13,15 @@ resource "aws_scheduler_schedule" "this" {
     role_arn = var.target_role_arn
 
     dynamic "ecs_parameters" {
-      for_each = var.ecs_parameters != null ? [var.ecs_parameters] : []
+      for_each = var.ecs_parameters != null ? [1] : []
       content {
-        task_definition_arn = ecs_parameters.value.task_definition_arn
-        launch_type         = ecs_parameters.value.launch_type
+        task_definition_arn = var.ecs_parameters.task_definition_arn
+        launch_type         = var.ecs_parameters.launch_type
 
         network_configuration {
           assign_public_ip = false
-          security_groups  = ecs_parameters.value.network_configuration.security_groups
-          subnets          = ecs_parameters.value.network_configuration.subnets
+          security_groups  = var.ecs_parameters.network_configuration.security_groups
+          subnets          = var.ecs_parameters.network_configuration.subnets
         }
       }
     }
