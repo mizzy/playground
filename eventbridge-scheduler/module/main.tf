@@ -1,3 +1,27 @@
+data "aws_iam_policy_document" "this" {
+  statement {
+    effect = "Allow"
+
+    actions = ["sts:AssumeRole", ]
+
+    principals {
+      type        = "Service"
+      identifiers = ["scheduler.amazonaws.com"]
+    }
+  }
+}
+
+resource "aws_iam_role" "this" {
+  name               = var.name
+  assume_role_policy = data.aws_iam_policy_document.this.json
+}
+
+resource "aws_iam_role_policy" "this" {
+  name   = var.name
+  policy = var.scheduler_policy_json
+  role   = aws_iam_role.this.id
+}
+
 resource "aws_scheduler_schedule" "this" {
   name = var.name
 
@@ -10,7 +34,7 @@ resource "aws_scheduler_schedule" "this" {
 
   target {
     arn      = var.target_arn
-    role_arn = var.target_role_arn
+    role_arn = aws_iam_role.this.arn
 
     dynamic "ecs_parameters" {
       for_each = var.ecs_parameters != null ? [1] : []

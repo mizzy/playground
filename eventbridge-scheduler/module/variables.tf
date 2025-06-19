@@ -2,19 +2,20 @@ variable "name" {
   type = string
 }
 
+variable "scheduler_policy_json" {
+  type = string
+}
+
 variable "schedule_expression" {
   type = string
 }
 
 variable "schedule_expression_timezone" {
-  type = string
+  type    = string
+  default = "Asia/Tokyo"
 }
 
 variable "target_arn" {
-  type = string
-}
-
-variable "target_role_arn" {
   type = string
 }
 

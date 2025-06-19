@@ -37,13 +37,18 @@ data "aws_iam_policy_document" "terraform" {
       "iam:ListAttachedRolePolicies",
       "iam:ListInstanceProfilesForRole",
       "iam:DeleteRole",
-      "iam:AttachRolePolicy",
+      #"iam:AttachRolePolicy",
       "iam:PassRole",
+      "iam:PutRolePolicy",
+      "iam:GetRolePolicy",
+      "iam:DeleteRolePolicy",
+      #"iam:DetachRolePolicy",
     ]
 
-    resources = ["arn:aws:iam::019115212452:role/scheduler"]
+    resources = ["arn:aws:iam::019115212452:role/ecs-task-schedule"]
   }
 
+  /*
   statement {
     effect = "Allow"
     actions = [
@@ -59,6 +64,7 @@ data "aws_iam_policy_document" "terraform" {
       "arn:aws:iam::019115212452:policy/scheduler-policy",
     ]
   }
+*/
 
   statement {
     effect = "Allow"
