@@ -1,3 +1,4 @@
 FROM ubuntu:24.04
 
-ENTRYPOINT ["echo", "Hello, World!"]
+ADD echo.sh /echo.sh
+RUN chmod +x /echo.sh

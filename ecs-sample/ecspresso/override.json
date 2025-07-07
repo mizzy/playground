@@ -1,0 +1,11 @@
+{
+  "containerOverrides": [
+    {
+      "name": "httpd",
+      "command": [
+        "./echo.sh",
+        "override"
+      ]
+    }
+  ]
+}

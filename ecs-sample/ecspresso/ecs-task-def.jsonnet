@@ -4,12 +4,8 @@ local tfstate = std.native('tfstate');
     // main container
     {
       name: 'httpd',
-      image: 'httpd:2.4',
-      command: [
-        // "/bin/sh -c \"echo '<html> <head> <title>Amazon ECS Sample App</title> <style>body {margin-top: 40px; background-color: #333;} </style> </head><body> <div style=color:white;text-align:center> <h1>Amazon ECS Sample App</h1> <h2>Congratulations!</h2> <p>Your application is now running on a container in Amazon ECS.</p> </div></body></html>' > /usr/local/apache2/htdocs/index.html && httpd-foreground\"",
-        "echo test",
-      ],
-      entryPoint: ['sh', '-c'],
+      image: '019115212452.dkr.ecr.ap-northeast-1.amazonaws.com/test',
+      command: ['./echo.sh', 'Hello World!'],
       cpu: 256,
       memoryReservation: 512,
       essential: true,
@@ -40,4 +36,8 @@ local tfstate = std.native('tfstate');
   placementConstraints: [],
   requiresCompatibilities: ['FARGATE'],
   volumes: [],
+  runtimePlatform: {
+    operatingSystemFamily: 'LINUX',
+    cpuArchitecture: 'ARM64',
+  },
 }
