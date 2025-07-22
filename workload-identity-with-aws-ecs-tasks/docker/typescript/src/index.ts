@@ -1,5 +1,6 @@
 import {google} from 'googleapis';
 import {
+    GoogleAuth,
     AwsClient,
     AwsSecurityCredentials,
     AwsSecurityCredentialsSupplier,
@@ -88,10 +89,42 @@ async function authenticateWithWorkloadIdentity() {
     }
 }
 
+async function authenticateWithGcloud() {
+    console.log('Using gcloud auth credentials...');
+    
+    // Create GoogleAuth instance that will use Application Default Credentials
+    const auth = new GoogleAuth({
+        scopes: ['https://www.googleapis.com/auth/spreadsheets']
+    });
+    
+    try {
+        const client = await auth.getClient();
+        console.log('Successfully authenticated with gcloud credentials');
+        return auth;
+    } catch (error: any) {
+        console.error('Failed to authenticate with gcloud:', error.message);
+        throw error;
+    }
+}
+
+async function isRunningOnAWS(): Promise<boolean> {
+    // Check if we're running on ECS by looking for ECS-specific environment variables
+    return !!(process.env.ECS_CONTAINER_METADATA_URI || 
+              process.env.ECS_CONTAINER_METADATA_URI_V4 ||
+              process.env.AWS_EXECUTION_ENV?.includes('ECS'));
+}
+
 async function accessSpreadsheet(spreadsheetId: string, range: string) {
     try {
-        console.log('Authenticating with Google Cloud Workload Identity...');
-        const authClient = await authenticateWithWorkloadIdentity();
+        let authClient;
+        
+        if (await isRunningOnAWS()) {
+            console.log('Running on AWS - using Workload Identity...');
+            authClient = await authenticateWithWorkloadIdentity();
+        } else {
+            console.log('Not running on AWS - using gcloud auth...');
+            authClient = await authenticateWithGcloud();
+        }
 
         const sheets = google.sheets({version: 'v4', auth: authClient});
 
@@ -106,12 +139,16 @@ async function accessSpreadsheet(spreadsheetId: string, range: string) {
 
         // Example: Update a cell
         const updateRange = 'A1';
+        const updateMessage = await isRunningOnAWS() 
+            ? `Updated from AWS Fargate at ${new Date().toISOString()}`
+            : `Updated from local environment at ${new Date().toISOString()}`;
+            
         const updateResponse = await sheets.spreadsheets.values.update({
             spreadsheetId,
             range: updateRange,
             valueInputOption: 'RAW',
             requestBody: {
-                values: [[`Updated from AWS Fargate at ${new Date().toISOString()}`]],
+                values: [[updateMessage]],
             },
         });
 
