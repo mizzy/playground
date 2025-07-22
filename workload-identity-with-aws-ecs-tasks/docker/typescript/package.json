@@ -1,0 +1,22 @@
+{
+  "name": "workload-identity-spreadsheet",
+  "version": "1.0.0",
+  "description": "Google Spreadsheet access using Workload Identity from AWS Fargate",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "ts-node src/index.ts"
+  },
+  "dependencies": {
+    "@aws-sdk/credential-providers": "^3.511.0",
+    "google-auth-library": "^9.7.0",
+    "googleapis": "^134.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.20",
+    "@types/node-fetch": "^2.6.11",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3"
+  }
+}

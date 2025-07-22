@@ -1,0 +1,25 @@
+# Git
+.git
+.gitignore
+
+# Documentation
+README.md
+*.md
+
+# Terraform
+*.tf
+*.tfstate
+*.tfstate.backup
+terraform-role/
+
+# Build artifacts
+*.log
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+
+# Temporary files
+tmp/
+temp/
