@@ -5,7 +5,8 @@ import {
     AwsSecurityCredentialsSupplier,
     ExternalAccountSupplierContext
 } from 'google-auth-library';
-import {fromNodeProviderChain} from '@aws-sdk/credential-providers';
+import { fromNodeProviderChain } from '@aws-sdk/credential-providers';
+import * as fs from 'fs/promises';
 
 class AwsSupplier implements AwsSecurityCredentialsSupplier {
     private region: string;
@@ -17,6 +18,10 @@ class AwsSupplier implements AwsSecurityCredentialsSupplier {
     async getAwsSecurityCredentials(context: ExternalAccountSupplierContext): Promise<AwsSecurityCredentials> {
         const awsCredentialsProvider = fromNodeProviderChain();
         const awsCredentials = await awsCredentialsProvider();
+        
+        console.log('AWS Credentials obtained from provider chain:');
+        console.log(`  AccessKeyId: ${awsCredentials.accessKeyId?.substring(0, 10)}...`);
+        console.log(`  SessionToken exists: ${!!awsCredentials.sessionToken}`);
 
         return {
             accessKeyId: awsCredentials.accessKeyId,
@@ -53,17 +58,34 @@ async function authenticateWithWorkloadIdentity() {
     const audience = `//iam.googleapis.com/projects/${projectNumber}/locations/global/workloadIdentityPools/${poolId}/providers/${providerId}`;
     console.log(`  Audience: ${audience}`);
 
-    // Service account impersonation is required for accessing Google APIs
-    const serviceAccountImpersonationUrl = `https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/${serviceAccountEmail}/generateAccessToken`;
+    // Service account impersonation URL
+    const serviceAccountImpersonationUrl = `https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/${serviceAccountEmail}:generateAccessToken`;
     console.log(`  Service Account Impersonation URL: ${serviceAccountImpersonationUrl}`);
-
-    return new AwsClient({
+    
+    // Create AwsClient with custom AWS credentials supplier
+    const client = new AwsClient({
         audience,
         subject_token_type: 'urn:ietf:params:aws:token-type:aws4_request',
         service_account_impersonation_url: serviceAccountImpersonationUrl,
         aws_security_credentials_supplier: new AwsSupplier(region),
         scopes: ['https://www.googleapis.com/auth/spreadsheets']
     });
+    
+    // Try to get access token to verify authentication
+    try {
+        console.log('Attempting to get access token...');
+        const token = await client.getAccessToken();
+        console.log('Access token obtained successfully');
+        console.log(`Token: ${token.token?.substring(0, 20)}...`);
+        return client;
+    } catch (error: any) {
+        console.error('Failed to get access token:', error.message);
+        if (error.response) {
+            console.error('Error response status:', error.response.status);
+            console.error('Error response data:', error.response.data);
+        }
+        throw error;
+    }
 }
 
 async function accessSpreadsheet(spreadsheetId: string, range: string) {

@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run build:*)",
+      "Bash(make:*)",
+      "Bash(aws-vault exec mizzy:*)",
+      "Bash(terraform state show:*)",
+      "Bash(docker build:*)"
+    ],
+    "deny": []
+  }
+}
