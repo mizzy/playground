@@ -12,13 +12,7 @@ local tfstate = std.native('tfstate');
   enableECSManagedTags: false,
   healthCheckGracePeriodSeconds: 0,
   launchType: 'FARGATE',
-  loadBalancers: [
-    {
-      containerName: 'httpd',
-      containerPort: 80,
-      targetGroupArn: tfstate('aws_lb_target_group.httpd.arn'),
-    },
-  ],
+  loadBalancers: [],
   networkConfiguration: {
     awsvpcConfiguration: {
       assignPublicIp: 'DISABLED',
