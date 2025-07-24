@@ -3,7 +3,7 @@ local tfstate = std.native('tfstate');
   containerDefinitions: [
     // main container
     {
-      name: 'httpd',
+      name: 'sheets',
       image: '019115212452.dkr.ecr.ap-northeast-1.amazonaws.com/sheets',
       cpu: 256,
       memoryReservation: 512,
@@ -17,17 +17,11 @@ local tfstate = std.native('tfstate');
           'awslogs-stream-prefix': 'sample',
         },
       },
-      portMappings: [
-        {
-          containerPort: 80,
-          hostPort: 80,
-          protocol: 'tcp',
-        },
-      ],
+      portMappings: [],
       environment: [
         {
           name: 'GCP_PROJECT_NUMBER',
-          value: '119633575013',
+          value: '376742608836',
         },
         {
           name: 'WORKLOAD_IDENTITY_POOL_ID',
@@ -39,7 +33,7 @@ local tfstate = std.native('tfstate');
         },
         {
           name: 'SERVICE_ACCOUNT_EMAIL',
-          value: 'spreadsheet-service-account@mizzy-270104.iam.gserviceaccount.com',
+          value: 'spreadsheet-service-account@service-account-466904.iam.gserviceaccount.com',
         },
         {
           name: 'SPREADSHEET_ID',
@@ -52,7 +46,7 @@ local tfstate = std.native('tfstate');
   memory: '1024',
   executionRoleArn: tfstate('aws_iam_role.httpd.arn'),
   taskRoleArn: tfstate('aws_iam_role.task_role.arn'),
-  family: 'httpd',
+  family: 'sheets',
   networkMode: 'awsvpc',
   placementConstraints: [],
   requiresCompatibilities: ['FARGATE'],

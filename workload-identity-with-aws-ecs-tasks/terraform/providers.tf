@@ -1,5 +1,11 @@
 provider "google" {
-  project = "mizzy-270104"
+  alias   = "workload-identity-pool"
+  project = "workload-identity-pool-466904"
+}
+
+provider "google" {
+  alias   = "service-account"
+  project = "service-account-466904"
 }
 
 provider "aws" {
