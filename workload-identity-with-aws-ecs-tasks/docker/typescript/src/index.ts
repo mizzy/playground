@@ -38,13 +38,13 @@ class AwsSupplier implements AwsSecurityCredentialsSupplier {
 
 async function authenticateWithWorkloadIdentity() {
     const projectNumber = process.env.GCP_PROJECT_NUMBER;
-    const projectId = process.env.GCP_PROJECT_ID || 'mizzy-270104';
+    const projectId = process.env.GCP_PROJECT_ID;
     const poolId = process.env.WORKLOAD_IDENTITY_POOL_ID;
     const providerId = process.env.WORKLOAD_IDENTITY_PROVIDER_ID;
     const serviceAccountEmail = process.env.SERVICE_ACCOUNT_EMAIL;
     const region = process.env.AWS_REGION || 'ap-northeast-1';
 
-    if (!projectNumber || !poolId || !providerId || !serviceAccountEmail) {
+    if (!projectNumber || !projectId || !poolId || !providerId || !serviceAccountEmail) {
         throw new Error('Missing required environment variables for Workload Identity');
     }
 
