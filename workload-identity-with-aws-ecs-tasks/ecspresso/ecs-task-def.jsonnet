@@ -24,6 +24,10 @@ local tfstate = std.native('tfstate');
           value: '376742608836',
         },
         {
+          name: 'GCP_PROJECT_ID',
+          value: 'service-account-466904',
+        },
+        {
           name: 'WORKLOAD_IDENTITY_POOL_ID',
           value: 'mizzy-pool',
         },
