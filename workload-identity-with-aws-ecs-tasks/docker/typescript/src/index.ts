@@ -137,23 +137,6 @@ async function accessSpreadsheet(spreadsheetId: string, range: string) {
         console.log('Spreadsheet data:');
         console.log(JSON.stringify(response.data.values, null, 2));
 
-        // Example: Update a cell
-        const updateRange = 'A1';
-        const updateMessage = await isRunningOnAWS() 
-            ? `Updated from AWS Fargate at ${new Date().toISOString()}`
-            : `Updated from local environment at ${new Date().toISOString()}`;
-            
-        const updateResponse = await sheets.spreadsheets.values.update({
-            spreadsheetId,
-            range: updateRange,
-            valueInputOption: 'RAW',
-            requestBody: {
-                values: [[updateMessage]],
-            },
-        });
-
-        console.log(`Updated cell ${updateRange}: ${updateResponse.data.updatedCells} cells updated`);
-
     } catch (error: any) {
         console.error('Error accessing spreadsheet:', error);
         if (error.response) {
