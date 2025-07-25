@@ -5,15 +5,12 @@ APP_NAME = sheets
 IMAGE_NAME = $(APP_NAME)
 TAG ?= latest
 FULL_IMAGE_NAME = $(IMAGE_NAME):$(TAG)
-REGISTRY ?= 
 BUILD_CONTEXT = .
 DOCKERFILE = ./Dockerfile
 
-# AWS ECR variables (optional)
-AWS_REGION ?= ap-northeast-1
-AWS_ACCOUNT_ID ?= $(shell aws sts get-caller-identity --query Account --output text 2>/dev/null)
-ECR_REGISTRY = $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com
-ECR_IMAGE_NAME = $(ECR_REGISTRY)/$(APP_NAME)
+# Docker Hub variables
+DOCKER_HUB_USERNAME = mizzy
+DOCKER_HUB_IMAGE_NAME = $(DOCKER_HUB_USERNAME)/$(APP_NAME)
 
 # Default target
 .DEFAULT_GOAL := help
@@ -56,45 +53,26 @@ run-interactive: ## Run the container interactively
 		$(FULL_IMAGE_NAME)
 
 .PHONY: push
-push: ## Push image to registry
-	@if [ -z "$(REGISTRY)" ]; then \
-		echo "Error: REGISTRY variable not set. Use 'make push REGISTRY=your-registry'"; \
-		exit 1; \
-	fi
-	docker tag $(FULL_IMAGE_NAME) $(REGISTRY)/$(FULL_IMAGE_NAME)
-	docker push $(REGISTRY)/$(FULL_IMAGE_NAME)
-	@echo "Pushed: $(REGISTRY)/$(FULL_IMAGE_NAME)"
+push: ## Push image to Docker Hub
+	@echo "Pushing to Docker Hub: $(DOCKER_HUB_IMAGE_NAME):$(TAG)"
+	docker tag $(FULL_IMAGE_NAME) $(DOCKER_HUB_IMAGE_NAME):$(TAG)
+	docker tag $(FULL_IMAGE_NAME) $(DOCKER_HUB_IMAGE_NAME):latest
+	docker push $(DOCKER_HUB_IMAGE_NAME):$(TAG)
+	docker push $(DOCKER_HUB_IMAGE_NAME):latest
+	@echo "Pushed to Docker Hub: $(DOCKER_HUB_IMAGE_NAME):$(TAG)"
 
-.PHONY: ecr-login
-ecr-login: ## Login to AWS ECR
-	@if [ -z "$(AWS_ACCOUNT_ID)" ]; then \
-		echo "Error: Unable to get AWS Account ID. Make sure AWS CLI is configured."; \
-		exit 1; \
-	fi
-	aws ecr get-login-password --region $(AWS_REGION) | docker login --username AWS --password-stdin $(ECR_REGISTRY)
-	@echo "Logged in to ECR: $(ECR_REGISTRY)"
-
-.PHONY: ecr-create-repo
-ecr-create-repo: ## Create ECR repository if it doesn't exist
-	@echo "Creating ECR repository: $(APP_NAME)"
-	aws ecr describe-repositories --repository-names $(APP_NAME) --region $(AWS_REGION) 2>/dev/null || \
-	aws ecr create-repository --repository-name $(APP_NAME) --region $(AWS_REGION)
-
-.PHONY: ecr-push
-ecr-push: ecr-create-repo ## Build and push to AWS ECR
-	@echo "Building and pushing to ECR: $(ECR_IMAGE_NAME):$(TAG)"
-	docker tag $(FULL_IMAGE_NAME) $(ECR_IMAGE_NAME):$(TAG)
-	docker tag $(FULL_IMAGE_NAME) $(ECR_IMAGE_NAME):latest
-	docker push $(ECR_IMAGE_NAME):$(TAG)
-	docker push $(ECR_IMAGE_NAME):latest
-	@echo "Pushed to ECR: $(ECR_IMAGE_NAME):$(TAG)"
+.PHONY: docker-login
+docker-login: ## Login to Docker Hub
+	@echo "Please login to Docker Hub"
+	docker login
+	@echo "Logged in to Docker Hub"
 
 .PHONY: clean
 clean: ## Remove local images
 	@echo "Removing local images..."
 	docker rmi $(FULL_IMAGE_NAME) 2>/dev/null || true
-	docker rmi $(ECR_IMAGE_NAME):$(TAG) 2>/dev/null || true
-	docker rmi $(ECR_IMAGE_NAME):latest 2>/dev/null || true
+	docker rmi $(DOCKER_HUB_IMAGE_NAME):$(TAG) 2>/dev/null || true
+	docker rmi $(DOCKER_HUB_IMAGE_NAME):latest 2>/dev/null || true
 	docker image prune -f
 	@echo "Cleanup complete"
 
@@ -118,5 +96,5 @@ all: clean build test ## Clean, build, and test
 # Usage examples:
 # make build                    # Build with default tag
 # make build TAG=v1.0.0        # Build with specific tag
-# make ecr-push TAG=v1.0.0     # Push to ECR with specific tag
+# make push TAG=v1.0.0         # Push to Docker Hub with specific tag
 # make run SPREADSHEET_ID=your_id GOOGLE_CLOUD_PROJECT=your_project

@@ -4,7 +4,7 @@ local tfstate = std.native('tfstate');
     // main container
     {
       name: 'sheets',
-      image: '019115212452.dkr.ecr.ap-northeast-1.amazonaws.com/sheets',
+      image: 'mizzy/sheets:latest',
       cpu: 256,
       memoryReservation: 512,
       essential: true,
