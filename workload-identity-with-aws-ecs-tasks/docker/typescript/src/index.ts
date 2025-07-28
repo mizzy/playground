@@ -108,12 +108,19 @@ async function authenticateWithGcloud() {
 
   const projectId = process.env.GCP_PROJECT_ID;
 
+  if (!projectId) {
+    throw new Error(
+      "GCP_PROJECT_ID environment variable is required for quota project",
+    );
+  }
+
+  // Set the quota project environment variable for Google Cloud SDK
+  process.env.GOOGLE_CLOUD_QUOTA_PROJECT = projectId;
+  console.log(`  Setting GOOGLE_CLOUD_QUOTA_PROJECT: ${projectId}`);
+
   // Create GoogleAuth instance that will use Application Default Credentials
   const auth = new GoogleAuth({
     scopes: ["https://www.googleapis.com/auth/spreadsheets"],
-    clientOptions: {
-      quotaProjectId: projectId,
-    },
   });
 
   try {
