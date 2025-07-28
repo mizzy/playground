@@ -6,7 +6,7 @@ import {
     AwsSecurityCredentialsSupplier,
     ExternalAccountSupplierContext
 } from 'google-auth-library';
-import { fromNodeProviderChain } from '@aws-sdk/credential-providers';
+import {fromNodeProviderChain} from '@aws-sdk/credential-providers';
 import * as fs from 'fs/promises';
 
 class AwsSupplier implements AwsSecurityCredentialsSupplier {
@@ -19,7 +19,7 @@ class AwsSupplier implements AwsSecurityCredentialsSupplier {
     async getAwsSecurityCredentials(context: ExternalAccountSupplierContext): Promise<AwsSecurityCredentials> {
         const awsCredentialsProvider = fromNodeProviderChain();
         const awsCredentials = await awsCredentialsProvider();
-        
+
         console.log('AWS Credentials obtained from provider chain:');
         console.log(`  AccessKeyId: ${awsCredentials.accessKeyId?.substring(0, 10)}...`);
         console.log(`  SessionToken exists: ${!!awsCredentials.sessionToken}`);
@@ -62,7 +62,7 @@ async function authenticateWithWorkloadIdentity() {
     // Service account impersonation URL
     const serviceAccountImpersonationUrl = `https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/${serviceAccountEmail}:generateAccessToken`;
     console.log(`  Service Account Impersonation URL: ${serviceAccountImpersonationUrl}`);
-    
+
     // Create AwsClient with custom AWS credentials supplier
     const client = new AwsClient({
         audience,
@@ -71,7 +71,7 @@ async function authenticateWithWorkloadIdentity() {
         aws_security_credentials_supplier: new AwsSupplier(region),
         scopes: ['https://www.googleapis.com/auth/spreadsheets']
     });
-    
+
     // Try to get access token to verify authentication
     try {
         console.log('Attempting to get access token...');
@@ -91,15 +91,21 @@ async function authenticateWithWorkloadIdentity() {
 
 async function authenticateWithGcloud() {
     console.log('Using gcloud auth credentials...');
-    
+
+    const projectId = process.env.GCP_PROJECT_ID;
+
     // Create GoogleAuth instance that will use Application Default Credentials
     const auth = new GoogleAuth({
-        scopes: ['https://www.googleapis.com/auth/spreadsheets']
+        scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+        clientOptions: {
+            quotaProjectId: projectId
+        }
     });
-    
+
     try {
         const client = await auth.getClient();
         console.log('Successfully authenticated with gcloud credentials');
+        console.log(`  Quota Project ID: ${projectId}`);
         return auth;
     } catch (error: any) {
         console.error('Failed to authenticate with gcloud:', error.message);
@@ -109,15 +115,15 @@ async function authenticateWithGcloud() {
 
 async function isRunningOnAWS(): Promise<boolean> {
     // Check if we're running on ECS by looking for ECS-specific environment variables
-    return !!(process.env.ECS_CONTAINER_METADATA_URI || 
-              process.env.ECS_CONTAINER_METADATA_URI_V4 ||
-              process.env.AWS_EXECUTION_ENV?.includes('ECS'));
+    return !!(process.env.ECS_CONTAINER_METADATA_URI ||
+        process.env.ECS_CONTAINER_METADATA_URI_V4 ||
+        process.env.AWS_EXECUTION_ENV?.includes('ECS'));
 }
 
 async function accessSpreadsheet(spreadsheetId: string, range: string) {
     try {
         let authClient;
-        
+
         if (await isRunningOnAWS()) {
             console.log('Running on AWS - using Workload Identity...');
             authClient = await authenticateWithWorkloadIdentity();
