@@ -121,9 +121,6 @@ async function authenticateWithGcloud() {
   // Create GoogleAuth instance that will use Application Default Credentials
   const auth = new GoogleAuth({
     scopes: ["https://www.googleapis.com/auth/spreadsheets"],
-    clientOptions: {
-      quotaProjectId: projectId,
-    },
   });
 
   try {
