@@ -1,0 +1,20 @@
+{
+  "FunctionName": "gcloud-workload-identity-lambda",
+  "Runtime": "nodejs20.x",
+  "Role": "arn:aws:iam::019115212452:role/lambda-workload-identity-role",
+  "Handler": "dist/index.handler",
+  "Description": "Lambda function with GCP Workload Identity",
+  "Timeout": 30,
+  "MemorySize": 256,
+  "Environment": {
+    "Variables": {
+      "GCP_PROJECT_NUMBER": "376742608836",
+      "GCP_PROJECT_ID": "service-account-466904",
+      "WORKLOAD_IDENTITY_POOL_ID": "mizzy-pool-d1748664",
+      "WORKLOAD_IDENTITY_PROVIDER_ID": "mizzy-aws-provider",
+      "SERVICE_ACCOUNT_EMAIL": "spreadsheet-service-account@service-account-466904.iam.gserviceaccount.com",
+      "SPREADSHEET_ID": "1wq9mrX9-FrXhFaHnf-jx1MsRwbGVMzrxyNpTlkJJ3g4"
+    }
+  },
+  "Architectures": ["x86_64"]
+}

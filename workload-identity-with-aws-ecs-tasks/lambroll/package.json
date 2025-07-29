@@ -1,0 +1,20 @@
+{
+  "name": "lambroll-gcloud-client",
+  "version": "1.0.0",
+  "description": "Google Auth client for Lambda with Workload Identity",
+  "main": "gcloudClient.js",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w"
+  },
+  "dependencies": {
+    "google-auth-library": "^9.4.1",
+    "@aws-sdk/credential-providers": "^3.478.0",
+    "googleapis": "^126.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.5",
+    "@types/aws-lambda": "^8.10.130",
+    "typescript": "^5.3.3"
+  }
+}

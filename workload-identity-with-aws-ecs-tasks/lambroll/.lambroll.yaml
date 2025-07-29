@@ -1,0 +1,13 @@
+region: ap-northeast-1
+src: ./
+exclude:
+  - "*.ts"
+  - node_modules/
+  - tsconfig.json
+  - package.json
+  - package-lock.json
+  - .lambroll.yaml
+  - function.json
+include:
+  - dist/**
+  - node_modules/**
