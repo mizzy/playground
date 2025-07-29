@@ -1,7 +1,11 @@
 resource "google_iam_workload_identity_pool" "mizzy" {
   provider = google.workload-identity-pool
 
-  workload_identity_pool_id = "mizzy-pool"
+  workload_identity_pool_id = "mizzy-pool-${substr(uuid(), 0, 8)}"
+
+  lifecycle {
+    ignore_changes = [workload_identity_pool_id]
+  }
 }
 
 data "aws_caller_identity" "current" {}

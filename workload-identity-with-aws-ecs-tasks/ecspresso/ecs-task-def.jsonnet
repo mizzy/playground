@@ -29,7 +29,7 @@ local tfstate = std.native('tfstate');
         },
         {
           name: 'WORKLOAD_IDENTITY_POOL_ID',
-          value: 'mizzy-pool',
+          value: 'mizzy-pool-d1748664',
         },
         {
           name: 'WORKLOAD_IDENTITY_PROVIDER_ID',
