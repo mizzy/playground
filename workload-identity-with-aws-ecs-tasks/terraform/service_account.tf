@@ -12,5 +12,6 @@ resource "google_service_account_iam_binding" "workload_identity_user" {
   role               = "roles/iam.workloadIdentityUser"
   members = [
     "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.mizzy.name}/attribute.aws_role/task-role",
+    "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.mizzy.name}/attribute.aws_role/${aws_iam_role.lambda_workload_identity.name}",
   ]
 }
