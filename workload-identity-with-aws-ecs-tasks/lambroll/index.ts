@@ -13,7 +13,7 @@ async function accessGoogleSheets(spreadsheetId: string, range: string) {
     workloadIdentityPoolId: process.env.WORKLOAD_IDENTITY_POOL_ID,
     workloadIdentityPoolProviderId: process.env.WORKLOAD_IDENTITY_PROVIDER_ID,
     serviceAccountEmail: process.env.SERVICE_ACCOUNT_EMAIL,
-    region: process.env.AWS_REGION || "ap-northeast-1",
+    awsRegion: process.env.AWS_REGION || "ap-northeast-1",
   });
 
   // Sheets APIクライアントを作成
