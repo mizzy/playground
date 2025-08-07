@@ -4,4 +4,5 @@ vendor/
 node_modules/
 terraform.tfvars
 *.tfvars
+.claude/settings.local.json
 
