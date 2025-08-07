@@ -2,4 +2,6 @@
 terraform.tfstate*
 vendor/
 node_modules/
+terraform.tfvars
+*.tfvars
 
