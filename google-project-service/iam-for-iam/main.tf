@@ -33,9 +33,6 @@ resource "google_project_iam_custom_role" "iam_manager" {
     # Service account IAM policy (needed for impersonation setup)
     "iam.serviceAccounts.getIamPolicy",
     "iam.serviceAccounts.setIamPolicy",
-    
-    # Project metadata (needed by Terraform provider)
-    "resourcemanager.projects.get",
   ]
 }
 
