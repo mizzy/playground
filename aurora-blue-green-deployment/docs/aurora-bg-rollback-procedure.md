@@ -2,6 +2,9 @@
 
 ## 重要な注意事項
 
+> [!CAUTION]
+> **想定ダウンタイム**: この手順によるロールバックでは、クラスター名とインスタンス名の変更により**約15-20分のダウンタイム**が発生します
+
 > [!WARNING]
 > **データ損失**: ロールバックを実行すると、スイッチオーバー後に新環境で行われたすべてのデータ変更が失われます
 
@@ -10,6 +13,16 @@
 
 ## 概要
 本手順書では、ブルーグリーンデプロイメント後に手動でクラスター名を変更することで、Aurora PostgreSQL クラスターをロールバックする手順を説明します。
+
+### 手順の流れ
+1. **現在の状態確認** - ブルーグリーンデプロイメント、クラスター、バージョンの状態確認
+2. **ロールバック実行前の準備** - エンドポイント保存、データバックアップ用スナップショット作成
+3. **ブルーグリーンデプロイメントの削除** - 名前変更の妨げとなるリソースを削除
+4. **現在の環境の名前変更** - アップグレード後環境を`-to-delete`サフィックス付きに変更
+5. **元バージョン環境の名前復元** - 旧環境の`-old1`サフィックスを削除して元の名前に戻す
+6. **ロールバック後の確認** - バージョン、エンドポイント、インスタンスの確認
+7. **不要環境の削除** - `-to-delete`サフィックス付き環境をクリーンアップ
+8. **Terraformとの同期確認** - コードとインフラの一貫性を確保
 
 > [!WARNING]
 > AWS RDS ブルーグリーンデプロイメントには公式のスイッチバック機能がありません。そのため、ロールバックにはクラスター名の手動変更を行います。
@@ -53,16 +66,24 @@ BG_DEPLOYMENT_ID=$(aws-vault exec mizzy -- aws rds describe-blue-green-deploymen
 
 if [ -z "$BG_DEPLOYMENT_ID" ]; then
   echo "❌ エラー: スイッチオーバー完了済みのブルーグリーンデプロイメントが見つかりません"
-  exit 1
+  return 1
 fi
 
+BG_DEPLOYMENT_STATUS=$(aws-vault exec mizzy -- aws rds describe-blue-green-deployments \
+  --blue-green-deployment-identifier $BG_DEPLOYMENT_ID \
+  --region $AWS_REGION \
+  --query 'BlueGreenDeployments[0].Status' \
+  --output text)
+
 echo "✅ ブルーグリーンデプロイメントID: $BG_DEPLOYMENT_ID"
+echo "✅ ステータス: $BG_DEPLOYMENT_STATUS"
 ```
 
 ##### 期待される出力
 ```
 [ブルーグリーンデプロイメントの確認]
 ✅ ブルーグリーンデプロイメントID: bgd-xxxxxxxxxxxxxxx
+✅ ステータス: SWITCHOVER_COMPLETED
 ```
 
 ##### 確認項目
@@ -86,7 +107,7 @@ OLD_STATUS=$(aws-vault exec mizzy -- aws rds describe-db-clusters \
 
 if [ "$OLD_STATUS" = "NOT_FOUND" ]; then
   echo "❌ エラー: 元バージョン環境のクラスター $OLD_CLUSTER_ID が見つかりません"
-  exit 1
+  return 1
 fi
 
 TARGET_VERSION=$(aws-vault exec mizzy -- aws rds describe-db-clusters \
@@ -97,7 +118,7 @@ TARGET_VERSION=$(aws-vault exec mizzy -- aws rds describe-db-clusters \
 
 if [ "$OLD_STATUS" != "available" ]; then
   echo "❌ 元バージョン環境のクラスターが利用可能でありません: $OLD_STATUS"
-  exit 1
+  return 1
 fi
 
 echo "✅ クラスターID: $OLD_CLUSTER_ID"
@@ -115,7 +136,7 @@ echo "✅ ステータス: $OLD_STATUS"
 
 ##### 確認項目
 - [ ] 元バージョン環境のクラスターが存在する（-old1サフィックス付き）
-- [ ] ロールバック先バージョンが取得できている
+- [ ] ロールバック先バージョンが正しい
 - [ ] ステータスが `available` である
 
 #### 1.3 現在のクラスター情報を確認
@@ -133,7 +154,7 @@ CURRENT_STATUS=$(aws-vault exec mizzy -- aws rds describe-db-clusters \
 
 if [ "$CURRENT_STATUS" = "NOT_FOUND" ]; then
   echo "❌ エラー: クラスター $CLUSTER_ID が見つかりません"
-  exit 1
+  return 1
 fi
 
 CURRENT_VERSION=$(aws-vault exec mizzy -- aws rds describe-db-clusters \
@@ -144,7 +165,7 @@ CURRENT_VERSION=$(aws-vault exec mizzy -- aws rds describe-db-clusters \
 
 if [ "$CURRENT_STATUS" != "available" ]; then
   echo "❌ クラスターステータスが利用可能でありません: $CURRENT_STATUS"
-  exit 1
+  return 1
 fi
 
 echo "✅ クラスターID: $CLUSTER_ID"
@@ -161,8 +182,8 @@ echo "✅ ステータス: $CURRENT_STATUS"
 ```
 
 ##### 確認項目
-- [ ] クラスターが存在する
-- [ ] 現在のバージョンが表示されている（アップグレード後のバージョン）
+- [ ] 現在のクラスターが存在する
+- [ ] 現在のバージョンが正しい（アップグレード後のバージョン）
 - [ ] ステータスが `available` である
 
 #### 1.4 チェック結果のサマリー表示
@@ -173,6 +194,13 @@ echo "✅ ステータス: $CURRENT_STATUS"
 ```bash
 echo "========================================="
 echo "✅ すべてのチェックに合格しました"
+echo ""
+echo "設定されたシェル変数:"
+echo "  - CLUSTER_ID: $CLUSTER_ID"
+echo "  - AWS_REGION: $AWS_REGION"
+echo "  - BG_DEPLOYMENT_ID: $BG_DEPLOYMENT_ID"
+echo "  - CURRENT_VERSION: $CURRENT_VERSION"
+echo "  - TARGET_VERSION: $TARGET_VERSION"
 echo ""
 echo "ロールバック情報:"
 echo "  - ブルーグリーンデプロイメントID: $BG_DEPLOYMENT_ID"
@@ -186,6 +214,13 @@ echo "========================================="
 =========================================
 ✅ すべてのチェックに合格しました
 
+設定されたシェル変数:
+  - CLUSTER_ID: aurora-bg-aurora-cluster
+  - AWS_REGION: ap-northeast-1
+  - BG_DEPLOYMENT_ID: bgd-xxxxxxxxxxxxxxx
+  - CURRENT_VERSION: XX.XX
+  - TARGET_VERSION: YY.YY
+
 ロールバック情報:
   - Blue/Green デプロイメントID: bgd-xxxxxxxxxxxxxxx
   - 現在のバージョン: XX.XX → ロールバック先: YY.YY
@@ -196,9 +231,8 @@ echo "========================================="
 ##### 確認項目
 - [ ] すべてのシェル変数が正しく設定されている
 - [ ] バージョンの変更方向が正しい（新→旧）
-- [ ] ロールバック対象が明確である
 
-### 2. データバックアップ
+### 2. ロールバック実行前の準備
 
 #### 2.1 エンドポイントの保存
 
@@ -231,8 +265,8 @@ echo "✅ リーダーエンドポイント保存: $ORIGINAL_READER_ENDPOINT"
 ```
 
 ##### 確認項目
-- [ ] ライターエンドポイントが保存された
-- [ ] リーダーエンドポイントが保存された
+- [ ] ライターエンドポイントが正しい
+- [ ] リーダーエンドポイントが正しい
 
 #### 2.2 スナップショット作成
 
@@ -242,14 +276,26 @@ echo "✅ リーダーエンドポイント保存: $ORIGINAL_READER_ENDPOINT"
 ```bash
 SNAPSHOT_ID="${CLUSTER_ID}-before-rollback-$(date +%Y%m%d-%H%M%S)"
 
-echo "スナップショット作成中: $SNAPSHOT_ID"
+echo "スナップショット作成中..."
+echo "✅ スナップショットID: $SNAPSHOT_ID"
 aws-vault exec mizzy -- aws rds create-db-cluster-snapshot \
   --db-cluster-snapshot-identifier $SNAPSHOT_ID \
   --db-cluster-identifier $CLUSTER_ID \
   --region $AWS_REGION >/dev/null
 
-echo "✅ スナップショット作成を開始しました: $SNAPSHOT_ID"
+echo "✅ スナップショット作成を開始しました"
 ```
+
+##### 期待される出力
+```
+スナップショット作成中...
+✅ スナップショットID: aurora-bg-aurora-cluster-before-rollback-20240101-123456
+✅ スナップショット作成を開始しました
+```
+
+##### 確認項目
+- [ ] スナップショットIDが正しく表示されている
+- [ ] スナップショット作成が開始された
 
 #### 2.3 スナップショット作成完了の待機
 
@@ -266,6 +312,15 @@ aws-vault exec mizzy -- aws rds wait db-cluster-available \
 echo "✅ クラスターが利用可能になりました"
 ```
 
+##### 期待される出力
+```
+クラスターが利用可能になるまで待機中...
+✅ クラスターが利用可能になりました
+```
+
+##### 確認項目
+- [ ] クラスターが利用可能状態に戻った
+
 ### 3. ブルーグリーンデプロイメントの削除
 
 #### 3.1 ブルーグリーンデプロイメントの削除
@@ -276,7 +331,7 @@ echo "✅ クラスターが利用可能になりました"
 ```bash
 if [ -z "$BG_DEPLOYMENT_ID" ]; then
   echo "エラー: BG_DEPLOYMENT_ID が設定されていません"
-  exit 1
+  return 1
 fi
 
 echo "[ブルーグリーンデプロイメントの削除]"
@@ -312,52 +367,82 @@ fi
 
 #### 4.1 現在のクラスター名を変更
 
-現在の本番環境のクラスター名を-newサフィックス付きに変更します。
+現在の本番環境のクラスター名を-to-deleteサフィックス付きに変更します。
 
 ##### 実行コマンド
 ```bash
-NEW_CLUSTER_ID="${CLUSTER_ID}-new"
+DELETE_TARGET_CLUSTER_ID="${CLUSTER_ID}-to-delete"
 
-echo "[Step 1: 現在のクラスター名を変更]"
-echo "✅ $CLUSTER_ID → $NEW_CLUSTER_ID に変更中"
+echo "[現在のクラスター名を変更]"
+echo "✅ $CLUSTER_ID → $DELETE_TARGET_CLUSTER_ID に変更中"
 
 aws-vault exec mizzy -- aws rds modify-db-cluster \
   --db-cluster-identifier $CLUSTER_ID \
-  --new-db-cluster-identifier $NEW_CLUSTER_ID \
+  --new-db-cluster-identifier $DELETE_TARGET_CLUSTER_ID \
   --apply-immediately \
   --region $AWS_REGION >/dev/null
 
 echo "✅ クラスター名の変更を開始しました"
 
-echo "クラスター名変更の完了を待機中..."
-aws-vault exec mizzy -- aws rds wait db-cluster-available \
-  --db-cluster-identifier $NEW_CLUSTER_ID \
-  --region $AWS_REGION
-
-echo "✅ Step 1のクラスター名変更が完了しました"
+echo "変更完了まで待機します..."
+while true; do
+  if aws-vault exec mizzy -- aws rds describe-db-clusters \
+    --db-cluster-identifier $DELETE_TARGET_CLUSTER_ID \
+    --region $AWS_REGION >/dev/null 2>&1; then
+    
+    STATUS=$(aws-vault exec mizzy -- aws rds describe-db-clusters \
+      --db-cluster-identifier $DELETE_TARGET_CLUSTER_ID \
+      --region $AWS_REGION \
+      --query 'DBClusters[0].Status' \
+      --output text)
+    
+    if [ "$STATUS" = "available" ]; then
+      echo "✅ クラスター名変更が完了しました"
+      break
+    else
+      echo "待機中: $STATUS"
+      sleep 10
+    fi
+  else
+    echo "待機中: クラスター名変更処理中..."
+    sleep 10
+  fi
+done
 ```
+
+##### 期待される出力
+```
+[現在のクラスター名を変更]
+✅ aurora-bg-aurora-cluster → aurora-bg-aurora-cluster-to-delete に変更中
+✅ クラスター名の変更を開始しました
+クラスター名変更の完了を待機中...
+✅ クラスター名変更が完了しました
+```
+
+##### 確認項目
+- [ ] クラスター名変更が完了した
 
 #### 4.2 現在のインスタンス名を変更
 
-現在の本番環境のインスタンス名を-newサフィックス付きに変更します。
+現在の本番環境のインスタンス名を-to-deleteサフィックス付きに変更します。
 
 ##### 実行コマンド
 ```bash
-NEW_CLUSTER_ID="${CLUSTER_ID}-new"
+DELETE_TARGET_CLUSTER_ID="${CLUSTER_ID}-to-delete"
 
-echo "[Step 1.5: 現在のインスタンス名を変更]"
+echo "[現在のインスタンス名を変更]"
 aws-vault exec mizzy -- aws rds describe-db-instances \
-  --filters "Name=db-cluster-id,Values=$NEW_CLUSTER_ID" \
+  --filters "Name=db-cluster-id,Values=$DELETE_TARGET_CLUSTER_ID" \
   --region $AWS_REGION \
   --query 'DBInstances[*].DBInstanceIdentifier' \
   --output text | tr '\t' '\n' | while read instance_id; do
   
-  new_instance_id="${instance_id}-new"
-  echo "✅ $instance_id → $new_instance_id に変更中"
+  delete_target_instance_id="${instance_id}-to-delete"
+  echo "✅ $instance_id → $delete_target_instance_id に変更中"
   
   aws-vault exec mizzy -- aws rds modify-db-instance \
     --db-instance-identifier "$instance_id" \
-    --new-db-instance-identifier "$new_instance_id" \
+    --new-db-instance-identifier "$delete_target_instance_id" \
     --apply-immediately \
     --region $AWS_REGION >/dev/null
 done
@@ -365,23 +450,46 @@ done
 sleep 5
 
 echo "インスタンス名変更の完了を待機中..."
-aws-vault exec mizzy -- aws rds describe-db-instances \
-  --filters "Name=db-cluster-id,Values=$NEW_CLUSTER_ID" \
-  --region $AWS_REGION \
-  --query 'DBInstances[*].DBInstanceIdentifier' \
-  --output text | tr '\t' '\n' | while read -r instance_id; do
+while true; do
+  ALL_DATA=$(aws-vault exec mizzy -- aws rds describe-db-instances \
+    --filters "Name=db-cluster-id,Values=$DELETE_TARGET_CLUSTER_ID" \
+    --region $AWS_REGION \
+    --query 'DBInstances[?contains(DBInstanceIdentifier, `to-delete`)].[DBInstanceIdentifier, DBInstanceStatus]' \
+    --output text 2>/dev/null)
   
-  if [ -n "$instance_id" ] && [[ "$instance_id" == *"-new" ]]; then
-    echo "待機中: $instance_id"
-    aws-vault exec mizzy -- aws rds wait db-instance-available \
-      --db-instance-identifier "$instance_id" \
-      --region $AWS_REGION 2>/dev/null || echo "⚠️ $instance_id の待機をスキップしました"
-    echo "✅ $instance_id の変更が完了しました"
+  if [ -z "$ALL_DATA" ]; then
+    echo "待機中: インスタンス名変更処理中..."
+    sleep 10
+    continue
   fi
+  
+  ALL_AVAILABLE=false
+  echo "$ALL_DATA" | while read instance_id instance_status; do
+    if [ "$instance_status" != "available" ]; then
+      echo "待機中: $instance_id は $instance_status"
+    fi
+  done | grep -q "待機中" || ALL_AVAILABLE=true
+  
+  if [ "$ALL_AVAILABLE" = "true" ]; then
+    echo "✅ すべてのインスタンス名変更が完了しました"
+    break
+  fi
+  
+  sleep 10
 done
-
-echo "✅ Step 1.5のインスタンス名変更が完了しました"
 ```
+
+##### 期待される出力
+```
+[現在のインスタンス名を変更]
+✅ aurora-bg-aurora-instance-1 → aurora-bg-aurora-instance-1-to-delete に変更中
+✅ aurora-bg-aurora-instance-2 → aurora-bg-aurora-instance-2-to-delete に変更中
+インスタンス名変更の完了を待機中...
+✅ すべてのインスタンス名変更が完了しました
+```
+
+##### 確認項目
+- [ ] すべてのインスタンス名変更が完了した
 
 ### 5. 元バージョン環境の名前復元
 
@@ -393,7 +501,7 @@ echo "✅ Step 1.5のインスタンス名変更が完了しました"
 ```bash
 OLD_CLUSTER_ID="${CLUSTER_ID}-old1"
 
-echo "[Step 2: 元バージョン環境のクラスター名を復元]"
+echo "[元バージョン環境のクラスター名を復元]"
 echo "✅ $OLD_CLUSTER_ID → $CLUSTER_ID に復元中"
 
 aws-vault exec mizzy -- aws rds modify-db-cluster \
@@ -404,13 +512,43 @@ aws-vault exec mizzy -- aws rds modify-db-cluster \
 
 echo "✅ クラスター名の変更を開始しました"
 
-echo "クラスター名変更の完了を待機中..."
-aws-vault exec mizzy -- aws rds wait db-cluster-available \
-  --db-cluster-identifier $CLUSTER_ID \
-  --region $AWS_REGION
-
-echo "✅ Step 2のクラスター名変更が完了しました"
+echo "変更完了まで待機します..."
+while true; do
+  if aws-vault exec mizzy -- aws rds describe-db-clusters \
+    --db-cluster-identifier $CLUSTER_ID \
+    --region $AWS_REGION >/dev/null 2>&1; then
+    
+    STATUS=$(aws-vault exec mizzy -- aws rds describe-db-clusters \
+      --db-cluster-identifier $CLUSTER_ID \
+      --region $AWS_REGION \
+      --query 'DBClusters[0].Status' \
+      --output text)
+    
+    if [ "$STATUS" = "available" ]; then
+      echo "✅ クラスター名復元が完了しました"
+      break
+    else
+      echo "待機中: $STATUS"
+      sleep 10
+    fi
+  else
+    echo "待機中: クラスター名変更処理中..."
+    sleep 10
+  fi
+done
 ```
+
+##### 期待される出力
+```
+[元バージョン環境のクラスター名を復元]
+✅ aurora-bg-aurora-cluster-old1 → aurora-bg-aurora-cluster に復元中
+✅ クラスター名の変更を開始しました
+クラスター名変更の完了を待機中...
+✅ クラスター名復元が完了しました
+```
+
+##### 確認項目
+- [ ] クラスター名復元が完了した
 
 #### 5.2 元バージョン環境のインスタンス名を復元
 
@@ -418,10 +556,7 @@ echo "✅ Step 2のクラスター名変更が完了しました"
 
 ##### 実行コマンド
 ```bash
-OLD_CLUSTER_ID="${CLUSTER_ID}-old1"
-
-echo "[Step 2.5: 元バージョン環境のインスタンス名を復元]"
-RESTORE_INSTANCES=""
+echo "[元バージョン環境のインスタンス名を復元]"
 aws-vault exec mizzy -- aws rds describe-db-instances \
   --filters "Name=db-cluster-id,Values=$CLUSTER_ID" \
   --region $AWS_REGION \
@@ -429,47 +564,76 @@ aws-vault exec mizzy -- aws rds describe-db-instances \
   --output text | tr '\t' '\n' | while read instance_id; do
   
   if [[ "$instance_id" == *"-old1" ]]; then
-    new_instance_id="${instance_id%-old1}"
-    echo "✅ $instance_id → $new_instance_id に復元中"
+    restored_instance_id="${instance_id%-old1}"
+    echo "✅ $instance_id → $restored_instance_id に復元中"
     
     aws-vault exec mizzy -- aws rds modify-db-instance \
       --db-instance-identifier "$instance_id" \
-      --new-db-instance-identifier "$new_instance_id" \
+      --new-db-instance-identifier "$restored_instance_id" \
       --apply-immediately \
       --region $AWS_REGION >/dev/null
-    
-    if [ -z "$RESTORE_INSTANCES" ]; then
-      RESTORE_INSTANCES="$new_instance_id"
-    else
-      RESTORE_INSTANCES="$RESTORE_INSTANCES $new_instance_id"
-    fi
   fi
 done
 
 sleep 5
 
 echo "インスタンス名復元の完了を待機中..."
-aws-vault exec mizzy -- aws rds describe-db-instances \
-  --filters "Name=db-cluster-id,Values=$CLUSTER_ID" \
-  --region $AWS_REGION \
-  --query 'DBInstances[*].DBInstanceIdentifier' \
-  --output text | tr '\t' '\n' | while read -r instance_id; do
+while true; do
+  ALL_DATA=$(aws-vault exec mizzy -- aws rds describe-db-instances \
+    --filters "Name=db-cluster-id,Values=$CLUSTER_ID" \
+    --region $AWS_REGION \
+    --query 'DBInstances[*].[DBInstanceIdentifier, DBInstanceStatus]' \
+    --output text 2>/dev/null)
   
-  if [ -n "$instance_id" ] && [[ "$instance_id" != *"-old1" ]]; then
-    echo "待機中: $instance_id"
-    aws-vault exec mizzy -- aws rds wait db-instance-available \
-      --db-instance-identifier "$instance_id" \
-      --region $AWS_REGION 2>/dev/null || echo "⚠️ $instance_id の待機をスキップしました"
-    echo "✅ $instance_id の復元が完了しました"
+  if [ -z "$ALL_DATA" ]; then
+    echo "待機中: インスタンス名復元処理中..."
+    sleep 10
+    continue
   fi
+  
+  HAS_OLD1=false
+  ALL_NON_OLD1_AVAILABLE=false
+  
+  echo "$ALL_DATA" | grep -q "\-old1" && HAS_OLD1=true
+  
+  WAITING_OUTPUT=$(echo "$ALL_DATA" | while read instance_id instance_status; do
+    if [[ "$instance_id" != *"-old1" ]]; then
+      if [ "$instance_status" != "available" ]; then
+        echo "待機中: $instance_id は $instance_status"
+      fi
+    fi
+  done)
+  
+  if [ -n "$WAITING_OUTPUT" ]; then
+    echo "$WAITING_OUTPUT"
+  else
+    ALL_NON_OLD1_AVAILABLE=true
+  fi
+  
+  if [ "$HAS_OLD1" = "false" ] && [ "$ALL_NON_OLD1_AVAILABLE" = "true" ]; then
+    echo "✅ すべてのインスタンス名復元が完了しました"
+    break
+  fi
+  
+  sleep 10
 done
-
-echo "✅ Step 2.5のインスタンス名復元が完了しました"
 ```
 
-### 4. ロールバック後の確認
+##### 期待される出力
+```
+[元バージョン環境のインスタンス名を復元]
+✅ aurora-bg-aurora-instance-1-old1 → aurora-bg-aurora-instance-1 に復元中
+✅ aurora-bg-aurora-instance-2-old1 → aurora-bg-aurora-instance-2 に復元中
+インスタンス名復元の完了を待機中...
+✅ すべてのインスタンス名復元が完了しました
+```
 
-#### 4.1 クラスターバージョンの確認
+##### 確認項目
+- [ ] すべてのインスタンス名復元が完了した
+
+### 6. ロールバック後の確認
+
+#### 6.1 クラスターバージョンの確認
 
 ロールバックが正常に完了し、バージョンが元のバージョンに戻っていることを確認します。
 
@@ -496,13 +660,14 @@ CLUSTER_STATUS=$(aws-vault exec mizzy -- aws rds describe-db-clusters \
 
 if [ "$ACTUAL_VERSION" != "$TARGET_VERSION" ]; then
   echo "❌ バージョン不一致: $ACTUAL_VERSION (期待値: $TARGET_VERSION)"
-  exit 1
+  return 1
 fi
 
 if [ "$CLUSTER_STATUS" != "available" ]; then
   echo "⚠️  クラスターステータス: $CLUSTER_STATUS"
 fi
 
+echo "✅ クラスター名: $CLUSTER_ID"
 echo "✅ クラスターバージョン: $ACTUAL_VERSION"
 echo "✅ クラスターステータス: $CLUSTER_STATUS"
 ```
@@ -510,15 +675,17 @@ echo "✅ クラスターステータス: $CLUSTER_STATUS"
 ##### 期待される出力
 ```
 [クラスターバージョンの確認]
+✅ クラスター名: aurora-bg-aurora-cluster
 ✅ バージョン: YY.YY
 ✅ ステータス: available
 ```
 
 ##### 確認項目
+- [ ] クラスター名が正しい
 - [ ] バージョンがロールバック先バージョンに戻っている
 - [ ] クラスターステータスが `available` である
 
-#### 4.2 インスタンスバージョンの確認
+#### 6.2 インスタンスバージョンの確認
 
 すべてのインスタンスが元のバージョンに戻っていることを確認します。
 
@@ -543,7 +710,7 @@ done
 
 if [ $INSTANCE_ERRORS -gt 0 ]; then
   echo "❌ $INSTANCE_ERRORS 個のインスタンスに問題があります"
-  exit 1
+  return 1
 fi
 
 echo "✅ すべてのインスタンスが正常です"
@@ -558,12 +725,13 @@ echo "✅ すべてのインスタンスが正常です"
 ```
 
 ##### 確認項目
+- [ ] すべてのインスタンス名が元の名前になっている
 - [ ] すべてのインスタンスがロールバック先バージョンに戻っている
 - [ ] すべてのインスタンスステータスが `available` である
 
-#### 4.3 エンドポイントの確認と比較
+#### 6.3 エンドポイントの確認と比較
 
-ロールバック後のエンドポイントがロールバック前と同じであることを機械的に確認します。
+ロールバック後のエンドポイントがロールバック前と同じであることを確認します。
 
 ##### 実行コマンド
 ```bash
@@ -582,21 +750,21 @@ CURRENT_READER_ENDPOINT=$(aws-vault exec mizzy -- aws rds describe-db-clusters \
 
 if [ -z "$ORIGINAL_ENDPOINT" ] || [ -z "$ORIGINAL_READER_ENDPOINT" ]; then
   echo "⚠️  エラー: ロールバック前のエンドポイントが保存されていません"
-  exit 1
+  return 1
 fi
 
 if [ "$CURRENT_ENDPOINT" = "$ORIGINAL_ENDPOINT" ]; then
   echo "✅ ライターエンドポイント変更なし: $CURRENT_ENDPOINT"
 else
   echo "❌ ライターエンドポイント変更あり: $ORIGINAL_ENDPOINT → $CURRENT_ENDPOINT"
-  exit 1
+  return 1
 fi
 
 if [ "$CURRENT_READER_ENDPOINT" = "$ORIGINAL_READER_ENDPOINT" ]; then
   echo "✅ リーダーエンドポイント変更なし: $CURRENT_READER_ENDPOINT"
 else
   echo "❌ リーダーエンドポイント変更あり: $ORIGINAL_READER_ENDPOINT → $CURRENT_READER_ENDPOINT"
-  exit 1
+  return 1
 fi
 
 echo "✅ すべてのエンドポイントがロールバック前と同じです"
@@ -614,7 +782,7 @@ echo "✅ すべてのエンドポイントがロールバック前と同じで�
 - [ ] ライターエンドポイント変更なし
 - [ ] リーダーエンドポイント変更なし
 
-#### 4.4 検証結果のサマリー
+#### 6.4 検証結果のサマリー
 
 ロールバック後のすべての検証が完了したことを最終確認します。
 
@@ -653,164 +821,166 @@ echo "========================================="
 - [ ] バージョンがロールバック先バージョンである
 - [ ] ステータスが `available` である
 
-### 5. ロールバック後不要になった環境の削除
+### 7. ロールバック後不要になった環境の削除
 
-#### 5.1 ロールバック後の不要環境のインスタンス一覧を取得
+#### 7.1 ロールバック後の不要環境のインスタンス一覧を取得
 
--newサフィックス付きのクラスターに属するインスタンスを特定します。
+-to-deleteサフィックス付きのクラスターに属するインスタンスを特定します。
 
 ##### 実行コマンド
 ```bash
-NEW_CLUSTER_ID="${CLUSTER_ID}-new"
+DELETE_TARGET_CLUSTER_ID="${CLUSTER_ID}-to-delete"
 
 echo "[不要環境のインスタンス確認]"
-INSTANCE_LIST=$(aws-vault exec mizzy -- aws rds describe-db-instances \
-  --filters "Name=db-cluster-id,Values=$NEW_CLUSTER_ID" \
+DELETE_TARGET_INSTANCES=$(aws-vault exec mizzy -- aws rds describe-db-instances \
+  --filters "Name=db-cluster-id,Values=$DELETE_TARGET_CLUSTER_ID" \
   --region $AWS_REGION \
   --query 'DBInstances[*].DBInstanceIdentifier' \
   --output text 2>/dev/null || echo "")
 
-if [ -z "$INSTANCE_LIST" ]; then
+if [ -z "$DELETE_TARGET_INSTANCES" ]; then
   echo "ℹ️  削除するインスタンスがありません"
-  exit 0
+  return 0
 fi
 
-echo "$INSTANCE_LIST" > /tmp/new_instances.txt
-echo "✅ 削除対象インスタンスを確認しました"
+echo "✅ 削除対象インスタンス:"
+echo "$DELETE_TARGET_INSTANCES" | tr '\t' '\n' | while read instance; do
+  echo "  - $instance"
+done
 ```
 
 ##### 期待される出力
 ```
 [不要環境のインスタンス確認]
-✅ 削除対象インスタンスを確認しました
+✅ 削除対象インスタンス:
+  - aurora-bg-aurora-instance-1-to-delete
+  - aurora-bg-aurora-instance-2-to-delete
 ```
 
 ##### 確認項目
-- [ ] 削除対象インスタンスが特定された
+- [ ] 削除対象インスタンスが正しい
 
-#### 5.2 不要環境のインスタンスを削除
+#### 7.2 不要環境のインスタンスを削除
 
 不要になったアップグレード後の環境のインスタンスをすべて削除します。
 
 ##### 実行コマンド
 ```bash
-if [ ! -f /tmp/new_instances.txt ]; then
-  echo "インスタンス一覧がありません"
-  exit 0
+if [ -z "$DELETE_TARGET_INSTANCES" ]; then
+  echo "削除対象インスタンスがありません"
+  return 0
 fi
 
 echo "[不要環境インスタンスの削除]"
-for INSTANCE_ID in $(cat /tmp/new_instances.txt); do
-  echo "削除中: $INSTANCE_ID"
-  aws-vault exec mizzy -- aws rds delete-db-instance \
-    --db-instance-identifier "$INSTANCE_ID" \
-    --skip-final-snapshot \
-    --region $AWS_REGION >/dev/null 2>&1
+echo "$DELETE_TARGET_INSTANCES" | tr '\t' ' ' | xargs -n1 | while read INSTANCE_ID; do
+  if [ -n "$INSTANCE_ID" ]; then
+    echo "削除中: $INSTANCE_ID"
+    aws-vault exec mizzy -- aws rds delete-db-instance \
+      --db-instance-identifier "$INSTANCE_ID" \
+      --skip-final-snapshot \
+      --region $AWS_REGION >/dev/null 2>&1
+  fi
 done
 ```
 
 ##### 期待される出力
 ```
 [不要環境インスタンスの削除]
-削除中: aurora-bg-aurora-cluster-new-instance-1
-削除中: aurora-bg-aurora-cluster-new-instance-2
+削除中: aurora-bg-aurora-cluster-to-delete-instance-1
+削除中: aurora-bg-aurora-cluster-to-delete-instance-2
 ```
 
 ##### 確認項目
 - [ ] すべての不要インスタンスの削除が開始された
 
-#### 5.3 インスタンス削除の完了待機
+#### 7.3 インスタンス削除の完了待機
 
 すべてのインスタンスの削除が完了するまで待機します。
 
 ##### 実行コマンド
 ```bash
-if [ ! -f /tmp/new_instances.txt ]; then
-  exit 0
+if [ -z "$DELETE_TARGET_INSTANCES" ]; then
+  return 0
 fi
 
 echo "[インスタンス削除の完了待機]"
-for INSTANCE_ID in $(cat /tmp/new_instances.txt); do
-  echo "待機中: $INSTANCE_ID の削除"
-  aws-vault exec mizzy -- aws rds wait db-instance-deleted \
-    --db-instance-identifier "$INSTANCE_ID" \
-    --region $AWS_REGION 2>/dev/null || true
+echo "$DELETE_TARGET_INSTANCES" | tr '\t' ' ' | xargs -n1 | while read INSTANCE_ID; do
+  if [ -n "$INSTANCE_ID" ]; then
+    echo "待機中: $INSTANCE_ID の削除"
+    aws-vault exec mizzy -- aws rds wait db-instance-deleted \
+      --db-instance-identifier "$INSTANCE_ID" \
+      --region $AWS_REGION 2>/dev/null || true
+  fi
 done
 
-rm /tmp/new_instances.txt
 echo "✅ インスタンスの削除が完了しました"
 ```
 
 ##### 期待される出力
 ```
 [インスタンス削除の完了待機]
-待機中: aurora-bg-aurora-cluster-new-instance-1 の削除
-待機中: aurora-bg-aurora-cluster-new-instance-2 の削除
+待機中: aurora-bg-aurora-cluster-to-delete-instance-1 の削除
+待機中: aurora-bg-aurora-cluster-to-delete-instance-2 の削除
 ✅ インスタンスの削除が完了しました
 ```
 
 ##### 確認項目
 - [ ] すべてのインスタンスの削除が完了した
 
-#### 5.4 不要環境のクラスターを削除
+#### 7.4 不要環境のクラスターを削除
 
-インスタンス削除後、-newサフィックス付きのクラスター本体を削除します。
+インスタンス削除後、-to-deleteサフィックス付きのクラスター本体を削除します。
 
 ##### 実行コマンド
 ```bash
-NEW_CLUSTER_ID="${CLUSTER_ID}-new"
+DELETE_TARGET_CLUSTER_ID="${CLUSTER_ID}-to-delete"
 
 echo "[不要環境クラスターの削除]"
 aws-vault exec mizzy -- aws rds delete-db-cluster \
-  --db-cluster-identifier $NEW_CLUSTER_ID \
+  --db-cluster-identifier $DELETE_TARGET_CLUSTER_ID \
   --skip-final-snapshot \
   --region $AWS_REGION >/dev/null 2>&1 && \
-  echo "削除中: $NEW_CLUSTER_ID" || \
+  echo "削除中: $DELETE_TARGET_CLUSTER_ID" || \
   echo "ℹ️  クラスターは既に削除されています"
 ```
 
 ##### 期待される出力
 ```
 [不要環境クラスターの削除]
-削除中: aurora-bg-aurora-cluster-new
+削除中: aurora-bg-aurora-cluster-to-delete
 ```
 
 ##### 確認項目
 - [ ] 不要環境クラスターの削除が開始された
-- [ ] スナップショットなしで削除される
 
-#### 5.5 クラスター削除の完了待機
+#### 7.5 クラスター削除の完了待機
 
 クラスターの削除が完了し、すべてのクリーンアップが終了したことを確認します。
 
 ##### 実行コマンド
 ```bash
-NEW_CLUSTER_ID="${CLUSTER_ID}-new"
+DELETE_TARGET_CLUSTER_ID="${CLUSTER_ID}-to-delete"
 
 echo "[クラスター削除の完了待機]"
 aws-vault exec mizzy -- aws rds wait db-cluster-deleted \
-  --db-cluster-identifier $NEW_CLUSTER_ID \
+  --db-cluster-identifier $DELETE_TARGET_CLUSTER_ID \
   --region $AWS_REGION 2>/dev/null && \
   echo "✅ クラスターの削除が完了しました" || \
   echo "ℹ️  クラスターは既に削除されています"
-
-echo "✅ クリーンアップが完了しました"
 ```
 
 ##### 期待される出力
 ```
 [クラスター削除の完了待機]
 ✅ クラスターの削除が完了しました
-✅ クリーンアップが完了しました
 ```
 
 ##### 確認項目
 - [ ] 不要環境クラスターの削除が完了した
-- [ ] クリーンアップが完了した
 
-### 6. Terraformコードとの同期確認
+### 8. Terraformコードとの同期確認
 
-#### 6.1 実際のバージョンを取得
+#### 8.1 実際のバージョンを取得
 
 現在のAuroraクラスターの実際のバージョンを取得します。
 
@@ -833,7 +1003,7 @@ echo "実際のクラスターバージョン: $ACTUAL_VERSION"
 ##### 確認項目
 - [ ] ロールバック後のバージョンが表示される
 
-#### 6.2 terraform.tfvars のバージョンを確認
+#### 8.2 terraform.tfvars のバージョンを確認
 
 Terraformの設定ファイルが実際の環境と一致しているか確認します。
 
@@ -841,7 +1011,7 @@ Terraformの設定ファイルが実際の環境と一致しているか確認�
 ```bash
 if [ ! -f terraform.tfvars ]; then
   echo "⚠️  terraform.tfvars が見つかりません"
-  exit 1
+  return 1
 fi
 
 TFVARS_VERSION=$(grep "aurora_engine_version" terraform.tfvars | sed 's/.*"\(.*\)".*/\1/')
@@ -875,14 +1045,14 @@ aurora_engine_version = "YY.YY"
 - [ ] バージョンが一致しているか確認
 - [ ] 不一致の場合は更新方法が表示される
 
-#### 6.3 モジュールのデフォルト値を確認
+#### 8.3 モジュールのデフォルト値を確認
 
 Terraformモジュールのデフォルト値も必要に応じて更新します。
 
 ##### 実行コマンド
 ```bash
 if [ ! -f modules/aurora/variables.tf ]; then
-  exit 0
+  return 0
 fi
 
 MODULE_DEFAULT=$(grep -A2 'variable "engine_version"' modules/aurora/variables.tf | grep default | sed 's/.*"\(.*\)".*/\1/')
@@ -903,116 +1073,6 @@ fi
 ##### 確認項目
 - [ ] モジュールのデフォルトバージョンが表示される
 
----
-
-## トラブルシューティング
-
-### エラー時の自動診断スクリプト
-
-#### ブルーグリーンデプロイメントの状態確認
-
-##### 実行コマンド
-```bash
-echo "[ブルーグリーンデプロイメントの状態]"
-aws-vault exec mizzy -- aws rds describe-blue-green-deployments \
-  --region $AWS_REGION \
-  --query 'BlueGreenDeployments[*].[BlueGreenDeploymentIdentifier,Status,StatusDetails]' \
-  --output table 2>/dev/null || echo "ブルーグリーンデプロイメントが見つかりません"
-```
-
-##### 期待される出力
-```
-[ブルーグリーンデプロイメントの状態]
-ブルーグリーンデプロイメントが見つかりません
-```
-
-##### 確認項目
-- [ ] ブルーグリーンデプロイメントの状態が確認される
-
-#### クラスターの状態確認
-
-##### 実行コマンド
-```bash
-echo "[クラスターの状態]"
-for CLUSTER in $CLUSTER_ID "${CLUSTER_ID}-old1" "${CLUSTER_ID}-new" "${CLUSTER_ID}-green-*"; do
-  STATUS=$(aws-vault exec mizzy -- aws rds describe-db-clusters \
-    --db-cluster-identifier $CLUSTER \
-    --region $AWS_REGION \
-    --query 'DBClusters[0].[DBClusterIdentifier,EngineVersion,Status]' \
-    --output text 2>/dev/null || echo "")
-  if [ ! -z "$STATUS" ]; then
-    echo "$STATUS"
-  fi
-done
-```
-
-##### 期待される出力
-```
-[クラスターの状態]
-aurora-bg-aurora-cluster 15.6 available
-aurora-bg-aurora-cluster-old1 15.6 available
-```
-
-##### 確認項目
-- [ ] 各クラスターの状態が表示される
-
-#### 最近のエラーイベント確認
-
-##### 実行コマンド
-```bash
-echo "[最近のRDSエラーイベント]"
-aws-vault exec mizzy -- aws rds describe-events \
-  --source-identifier $CLUSTER_ID \
-  --source-type db-cluster \
-  --region $AWS_REGION \
-  --duration 60 \
-  --query 'Events[?EventCategories[?contains(@, `failure`)]].Message' \
-  --output text 2>/dev/null || echo "エラーイベントなし"
-```
-
-##### 期待される出力
-```
-[最近のRDSエラーイベント]
-エラーイベントなし
-```
-
-##### 確認項目
-- [ ] エラーイベントがないことを確認
-
-#### 推奨アクションの判定
-
-##### 実行コマンド
-```bash
-echo "[推奨アクション]"
-BG_STATUS=$(aws-vault exec mizzy -- aws rds describe-blue-green-deployments \
-  --region $AWS_REGION \
-  --query 'BlueGreenDeployments[0].Status' \
-  --output text 2>/dev/null || echo "NONE")
-
-case "$BG_STATUS" in
-  "SWITCHOVER_COMPLETED")
-    echo "→ クラスター名変更によるロールバックを実行可能です"
-    ;;
-  "PROVISIONING")
-    echo "→ ブルーグリーンデプロイメントの作成中です"
-    ;;
-  *)
-    echo "→ ブルーグリーンデプロイメントが利用できません"
-    echo "→ スナップショットからの復元を検討してください"
-    ;;
-esac
-```
-
-##### 期待される出力
-```
-[推奨アクション]
-→ クラスター名変更によるロールバックを実行可能です
-```
-
-##### 確認項目
-- [ ] 現在の状態に応じた推奨アクションが表示される
-
----
 
 ## 参考情報
 
