@@ -70,10 +70,16 @@ variable "instance_class" {
   default     = "db.t4g.medium"
 }
 
-variable "instance_count" {
+variable "aurora_instance_count" {
   description = "Number of Aurora instances in the cluster"
   type        = number
   default     = 2
+}
+
+variable "aurora_engine_version" {
+  description = "Aurora PostgreSQL engine version"
+  type        = string
+  default     = "15.6"
 }
 
 variable "backup_retention_period" {
@@ -111,3 +117,11 @@ variable "monitoring_interval" {
   type        = number
   default     = 60
 }
+
+variable "enable_enhanced_monitoring" {
+  description = "Enable RDS enhanced monitoring"
+  type        = bool
+  default     = false
+}
+
+
