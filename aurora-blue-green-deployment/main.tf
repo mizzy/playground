@@ -16,7 +16,7 @@ provider "aws" {
 # VPC Module
 module "vpc" {
   source = "git::https://github.com/mizzy/terraform-modules.git//aws/vpc?ref=main"
-  
+
   name       = var.name_prefix
   cidr_block = var.vpc_cidr
 }
