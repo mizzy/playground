@@ -1,7 +1,7 @@
 # DB Subnet Group
 resource "aws_db_subnet_group" "aurora" {
   name       = "${var.name_prefix}-aurora-subnet-group"
-  subnet_ids = [for s in module.vpc.private_subnets : s.id]
+  subnet_ids = var.subnet_ids
 
   tags = merge(
     var.tags,
@@ -15,7 +15,7 @@ resource "aws_db_subnet_group" "aurora" {
 resource "aws_security_group" "aurora" {
   name        = "${var.name_prefix}-aurora-sg"
   description = "Security group for Aurora PostgreSQL cluster"
-  vpc_id      = module.vpc.id
+  vpc_id      = var.vpc_id
 
   ingress {
     description = "PostgreSQL from VPC"
@@ -70,7 +70,7 @@ resource "aws_db_parameter_group" "aurora_postgresql" {
 resource "aws_rds_cluster" "aurora_postgresql" {
   cluster_identifier              = "${var.name_prefix}-aurora-cluster"
   engine                          = "aurora-postgresql"
-  engine_version                  = "15.6"
+  engine_version                  = var.engine_version
   database_name                   = var.database_name
   master_username                 = var.master_username
   master_password                 = var.master_password
