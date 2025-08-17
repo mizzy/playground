@@ -131,6 +131,22 @@ echo -e "${GREEN}Starting ECS Bastion Task...${NC}"
 
 # Terraformから値を取得
 echo "Getting configuration from Terraform outputs..."
+
+# Terraformの初期化状態をチェック
+if ! aws-vault exec $AWS_PROFILE -- terraform output -json 2>&1 | grep -q "private_subnets"; then
+    # エラーメッセージを確認
+    ERROR_MSG=$(aws-vault exec $AWS_PROFILE -- terraform output -json 2>&1)
+    if echo "$ERROR_MSG" | grep -q "Backend initialization required"; then
+        echo -e "${RED}Error: Terraform is not initialized in this directory.${NC}"
+        echo -e "${YELLOW}Please run: aws-vault exec $AWS_PROFILE -- terraform init${NC}"
+        exit 1
+    elif echo "$ERROR_MSG" | grep -q "No outputs found"; then
+        echo -e "${RED}Error: No Terraform outputs found.${NC}"
+        echo -e "${YELLOW}Please run: aws-vault exec $AWS_PROFILE -- terraform apply${NC}"
+        exit 1
+    fi
+fi
+
 SUBNETS=$(aws-vault exec $AWS_PROFILE -- terraform output -json private_subnets 2>/dev/null | jq -r '.[].id' | tr '\n' ',' | sed 's/,$//')
 SECURITY_GROUP=$(aws-vault exec $AWS_PROFILE -- terraform output -raw bastion_security_group_id 2>/dev/null)
 
