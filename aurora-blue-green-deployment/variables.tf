@@ -124,4 +124,33 @@ variable "enable_enhanced_monitoring" {
   default     = false
 }
 
+# Bastion ECS Variables
+variable "bastion_container_image" {
+  description = "Container image for the bastion task"
+  type        = string
+  default     = "public.ecr.aws/amazonlinux/amazonlinux:2023"
+}
 
+variable "bastion_task_cpu" {
+  description = "CPU units for the bastion task"
+  type        = string
+  default     = "256"
+}
+
+variable "bastion_task_memory" {
+  description = "Memory for the bastion task in MB"
+  type        = string
+  default     = "512"
+}
+
+variable "bastion_enable_service" {
+  description = "Whether to create an ECS service for always-running bastion"
+  type        = bool
+  default     = false
+}
+
+variable "bastion_service_desired_count" {
+  description = "Desired count for the bastion ECS service"
+  type        = number
+  default     = 1
+}

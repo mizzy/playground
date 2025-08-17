@@ -17,28 +17,33 @@ resource "aws_security_group" "aurora" {
   description = "Security group for Aurora PostgreSQL cluster"
   vpc_id      = var.vpc_id
 
-  ingress {
-    description = "PostgreSQL from VPC"
-    from_port   = 5432
-    to_port     = 5432
-    protocol    = "tcp"
-    cidr_blocks = [var.vpc_cidr]
-  }
-
-  egress {
-    description = "Allow all outbound traffic"
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
   tags = merge(
     var.tags,
     {
       Name = "${var.name_prefix}-aurora-sg"
     }
   )
+}
+
+# Security Group Rules for Aurora
+resource "aws_security_group_rule" "aurora_ingress_vpc" {
+  type              = "ingress"
+  from_port         = 5432
+  to_port           = 5432
+  protocol          = "tcp"
+  cidr_blocks       = [var.vpc_cidr]
+  security_group_id = aws_security_group.aurora.id
+  description       = "PostgreSQL from VPC"
+}
+
+resource "aws_security_group_rule" "aurora_egress_all" {
+  type              = "egress"
+  from_port         = 0
+  to_port           = 0
+  protocol          = "-1"
+  cidr_blocks       = ["0.0.0.0/0"]
+  security_group_id = aws_security_group.aurora.id
+  description       = "Allow all outbound traffic"
 }
 
 # RDS Cluster Parameter Group
@@ -78,8 +83,8 @@ resource "aws_rds_cluster" "aurora_postgresql" {
   vpc_security_group_ids          = [aws_security_group.aurora.id]
   db_cluster_parameter_group_name = aws_rds_cluster_parameter_group.aurora_postgresql.name
 
-  backup_retention_period = var.backup_retention_period
-  preferred_backup_window = var.backup_window
+  backup_retention_period      = var.backup_retention_period
+  preferred_backup_window      = var.backup_window
   preferred_maintenance_window = var.maintenance_window
 
   skip_final_snapshot       = var.skip_final_snapshot
@@ -98,14 +103,14 @@ resource "aws_rds_cluster" "aurora_postgresql" {
 # Aurora Instances
 resource "aws_rds_cluster_instance" "aurora_instance" {
   count = var.instance_count
-  
-  identifier                   = "${var.name_prefix}-aurora-instance-${count.index + 1}"
-  cluster_identifier           = aws_rds_cluster.aurora_postgresql.id
-  instance_class               = var.instance_class
-  engine                       = aws_rds_cluster.aurora_postgresql.engine
-  engine_version               = aws_rds_cluster.aurora_postgresql.engine_version
-  db_parameter_group_name      = aws_db_parameter_group.aurora_postgresql.name
-  
+
+  identifier              = "${var.name_prefix}-aurora-instance-${count.index + 1}"
+  cluster_identifier      = aws_rds_cluster.aurora_postgresql.id
+  instance_class          = var.instance_class
+  engine                  = aws_rds_cluster.aurora_postgresql.engine
+  engine_version          = aws_rds_cluster.aurora_postgresql.engine_version
+  db_parameter_group_name = aws_db_parameter_group.aurora_postgresql.name
+
   performance_insights_enabled = var.performance_insights_enabled
   monitoring_interval          = var.monitoring_interval
   monitoring_role_arn          = var.monitoring_interval > 0 ? aws_iam_role.rds_enhanced_monitoring[0].arn : null
