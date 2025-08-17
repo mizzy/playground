@@ -268,7 +268,10 @@ echo "✅ リーダーエンドポイント保存: $ORIGINAL_READER_ENDPOINT"
 - [ ] ライターエンドポイントが正しい
 - [ ] リーダーエンドポイントが正しい
 
-#### 2.2 スナップショット作成
+#### 2.2 スナップショット作成（オプション）
+
+> [!NOTE]
+> この手順はオプションです。データ保護のため、ロールバック実行前にスナップショットを作成することを推奨しますが、必須ではありません。
 
 ロールバック実行前に、現在のデータを保存するためのスナップショットを作成します。
 
@@ -297,13 +300,15 @@ echo "✅ スナップショット作成を開始しました"
 - [ ] スナップショットIDが正しく表示されている
 - [ ] スナップショット作成が開始された
 
-#### 2.3 スナップショット作成完了の待機
+#### 2.3 スナップショット作成完了の待機（オプション）
+
+> [!NOTE]
+> 2.2でスナップショットを作成した場合のみ実行してください。
 
 スナップショット作成によりクラスターが一時的にbacking-up状態になるため、available状態に戻るまで待機します。
 
 ##### 実行コマンド
 ```bash
-
 echo "クラスターが利用可能になるまで待機中..."
 aws-vault exec mizzy -- aws rds wait db-cluster-available \
   --db-cluster-identifier $CLUSTER_ID \
@@ -640,12 +645,6 @@ done
 ##### 実行コマンド
 ```bash
 echo "[クラスターバージョンの確認]"
-aws-vault exec mizzy -- aws rds describe-db-clusters \
-  --db-cluster-identifier $CLUSTER_ID \
-  --region $AWS_REGION \
-  --query 'DBClusters[0].[DBClusterIdentifier,EngineVersion,Status]' \
-  --output table
-
 ACTUAL_VERSION=$(aws-vault exec mizzy -- aws rds describe-db-clusters \
   --db-cluster-identifier $CLUSTER_ID \
   --region $AWS_REGION \
