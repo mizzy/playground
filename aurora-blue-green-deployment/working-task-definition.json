@@ -1,0 +1,54 @@
+{
+  "family": "working-bastion",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "256",
+  "memory": "512",
+  "executionRoleArn": "arn:aws:iam::019115212452:role/aurora-bg-bastion-execution-role",
+  "taskRoleArn": "arn:aws:iam::019115212452:role/aurora-bg-bastion-task-role",
+  "containerDefinitions": [
+    {
+      "name": "bastion",
+      "image": "public.ecr.aws/amazonlinux/amazonlinux:2023",
+      "essential": true,
+      "command": [
+        "/bin/sh",
+        "-c",
+        "yum install -y postgresql15 && exec /usr/bin/sleep 3600"
+      ],
+      "environment": [
+        {
+          "name": "PGHOST",
+          "value": "aurora-bg-aurora-cluster.cluster-c0kiz503n2ut.ap-northeast-1.rds.amazonaws.com"
+        },
+        {
+          "name": "PGPORT",
+          "value": "5432"
+        },
+        {
+          "name": "PGDATABASE",
+          "value": "mydb"
+        },
+        {
+          "name": "PGUSER",
+          "value": "postgres"
+        },
+        {
+          "name": "PGPASSWORD",
+          "value": "ChangeMe123!"
+        }
+      ],
+      "linuxParameters": {
+        "initProcessEnabled": true
+      },
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/aurora-bg-bastion",
+          "awslogs-region": "ap-northeast-1",
+          "awslogs-stream-prefix": "ecs"
+        }
+      }
+    }
+  ]
+}

@@ -45,6 +45,56 @@ output "aurora_security_group_id" {
   value       = module.aurora.security_group_id
 }
 
+# Bastion ECS Outputs
+output "bastion_cluster_name" {
+  description = "Name of the Bastion ECS cluster"
+  value       = module.bastion_ecs.cluster_name
+}
+
+output "bastion_task_definition_arn" {
+  description = "ARN of the Bastion task definition"
+  value       = module.bastion_ecs.task_definition_arn
+}
+
+output "bastion_task_definition_family" {
+  description = "Family of the Bastion task definition"
+  value       = module.bastion_ecs.task_definition_family
+}
+
+output "bastion_security_group_id" {
+  description = "Security group ID for the Bastion task"
+  value       = module.bastion_ecs.security_group_id
+}
+
+output "bastion_log_group_name" {
+  description = "CloudWatch log group name for Bastion"
+  value       = module.bastion_ecs.log_group_name
+}
+
+output "bastion_connect_command" {
+  description = "AWS CLI command to connect to the bastion"
+  value       = <<-EOT
+    aws ecs execute-command \
+      --cluster ${module.bastion_ecs.cluster_name} \
+      --task <TASK_ID> \
+      --container bastion \
+      --interactive \
+      --command "/bin/sh"
+  EOT
+}
+
+output "bastion_run_task_command" {
+  description = "AWS CLI command to run a new bastion task"
+  value       = <<-EOT
+    aws ecs run-task \
+      --cluster ${module.bastion_ecs.cluster_name} \
+      --task-definition ${module.bastion_ecs.task_definition_family} \
+      --network-configuration "awsvpcConfiguration={subnets=[${join(",", [for s in module.vpc.private_subnets : s.id])}],securityGroups=[${module.bastion_ecs.security_group_id}],assignPublicIp=DISABLED}" \
+      --enable-execute-command \
+      --launch-type FARGATE
+  EOT
+}
+
 # DMS Rollback Outputs (conditional)
 # DMSモジュールが有効化されたらコメントを外してください
 # output "dms_rollback_cluster_id" {
