@@ -70,3 +70,45 @@ deno fmt
 
 ### Project Independence
 Each directory represents a completely independent project with its own dependencies, build processes, and purposes. There are no shared libraries or cross-project dependencies.
+
+## Code Formatting Guidelines
+
+### Terminal Copy-Paste Compatibility
+When writing bash commands and scripts in documentation or procedure files:
+- **Remove inline comments**: Do not include comments within command lines that would interfere with terminal execution
+- **Replace exit with return**: In script functions or sourced scripts, use `return` instead of `exit` to avoid terminating the shell session
+- **Clean command blocks**: Ensure all command blocks can be directly copy-pasted into a terminal without modification
+- **AWS credentials**: Include `aws-vault exec` wrapper where appropriate for AWS CLI commands
+- **Japanese messages**: Use Japanese for all echo/output messages in command blocks
+- **Execution time tracking**: Add START_TIME and END_TIME tracking to each script section with elapsed time output
+- **Expected output sections**: Include "期待される出力例" sections after each command block showing what the user should see
+- **Checklist sections**: Include "確認項目" sections with checklist items for verification
+- **Shellcheck validation**: Validate all shell scripts with `shellcheck` and fix critical errors:
+  - Fix SC2086: Always quote variables (e.g., `"$VAR"` instead of `$VAR`)
+  - Fix SC2162: Use `read -r` instead of bare `read`
+  - Ignore SC2034 (unused variables), SC2148 (missing shebang in snippets), SC2016 (backticks in JQ queries)
+
+Example of terminal-friendly formatting:
+```bash
+# Good - comment on separate line
+START_TIME=$(date +%s)
+echo "変数を設定中"
+CLUSTER_ID="aurora-cluster"
+END_TIME=$(date +%s)
+ELAPSED=$((END_TIME - START_TIME))
+echo "実行時間: ${ELAPSED}秒"
+
+# Bad - inline comment breaks copy-paste
+echo "Setting up variables" # This is a comment
+```
+
+### Documentation Structure for Procedures
+When writing procedure documentation:
+- **Add brief descriptions**: Include a brief description before each execution command section explaining what will be done
+- **Organize with clear headers**: Use #### 実行コマンド, #### 期待される出力例, #### 確認項目
+- **Include expected outputs**: Show realistic output examples including AWS CLI responses
+- **Structure checklists by output sections**: Group checklist items by the output they correspond to (e.g., JSON出力, 表, テキスト出力)
+- **Add verification checklists**: Provide checklist items for users to verify each step completed successfully
+- **Track execution time**: Show typical execution times for each step
+- **Use Japanese consistently**: All user-facing messages should be in Japanese
+- **Make procedures generic**: Write procedures to handle various configurations (1台, 2台, それ以上) while keeping examples concrete
