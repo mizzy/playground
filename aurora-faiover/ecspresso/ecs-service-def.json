@@ -1,0 +1,34 @@
+{
+  "serviceName": "aurora-failover-typescript-app",
+  "cluster": "{{ tfstate `aws_ecs_cluster.aurora_failover.arn` }}",
+  "taskDefinition": "aurora-failover-typescript-app",
+  "desiredCount": 1,
+  "launchType": "FARGATE",
+  "platformVersion": "LATEST",
+  "networkConfiguration": {
+    "awsvpcConfiguration": {
+      "subnets": [
+        "subnet-05274665de799b44e",
+        "subnet-083d93024177a2522",
+        "subnet-04705a7563e867b16"
+      ],
+      "securityGroups": [
+        "{{ tfstate `aws_security_group.ecs_app.id` }}"
+      ],
+      "assignPublicIp": "DISABLED"
+    }
+  },
+  "enableExecuteCommand": true,
+  "enableLogging": true,
+  "propagateTags": "SERVICE",
+  "tags": [
+    {
+      "key": "Environment",
+      "value": "test"
+    },
+    {
+      "key": "Purpose",
+      "value": "aurora-failover"
+    }
+  ]
+}

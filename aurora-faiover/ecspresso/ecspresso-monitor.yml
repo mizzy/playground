@@ -1,0 +1,11 @@
+region: ap-northeast-1
+cluster: aurora-failover-test-cluster
+task_definition: ecs-task-def-monitor.json
+service_definition: ecs-service-def-monitor.json
+
+plugins:
+  - name: tfstate
+    config:
+      url: s3://terraform.mizzy.org/playground/aurora-failover/terraform.tfstate
+
+timeout: 10m
