@@ -1,0 +1,17 @@
+{
+  "name": "aurora-failover-app",
+  "version": "1.0.0",
+  "main": "index.ts",
+  "scripts": {
+    "start": "ts-node index.ts",
+    "db-monitor": "ts-node db-monitor.ts"
+  },
+  "dependencies": {
+    "kysely": "^0.27.4",
+    "pg": "^8.11.3",
+    "@types/node": "^20.10.0",
+    "@types/pg": "^8.10.9",
+    "typescript": "^5.3.3",
+    "ts-node": "^10.9.1"
+  }
+}

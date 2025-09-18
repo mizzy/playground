@@ -1,0 +1,44 @@
+{
+  "family": "aurora-failover-typescript-app",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "256",
+  "memory": "512",
+  "executionRoleArn": "{{ tfstate `aws_iam_role.ecs_task_execution.arn` }}",
+  "taskRoleArn": "{{ tfstate `aws_iam_role.ecs_task.arn` }}",
+  "containerDefinitions": [
+    {
+      "name": "app",
+      "image": "{{ tfstate `aws_ecr_repository.aurora_failover_app.repository_url` }}:latest",
+      "essential": true,
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/aurora-failover-typescript-app",
+          "awslogs-region": "ap-northeast-1",
+          "awslogs-stream-prefix": "ecs"
+        }
+      },
+      "environment": [
+        {
+          "name": "NODE_ENV",
+          "value": "production"
+        }
+      ],
+      "secrets": [
+        {
+          "name": "DB_HOST",
+          "valueFrom": "/aurora-failover/db/host"
+        },
+        {
+          "name": "DB_USER",
+          "valueFrom": "/aurora-failover/db/user"
+        },
+        {
+          "name": "DB_PASSWORD",
+          "valueFrom": "/aurora-failover/db/password"
+        }
+      ]
+    }
+  ]
+}
