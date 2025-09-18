@@ -23,8 +23,10 @@ help:
 	@echo "  ecs-logs        - ECSサービスのログ表示"
 	@echo "  ecs-exec        - ECSコンテナへの接続"
 	@echo "  ecs-update      - ECSサービスの更新（イメージプッシュ＋デプロイ）"
+	@echo "  ecs-delete      - ECSサービスの削除"
 	@echo "  ecs-run-monitor - DBモニタリングタスクの実行"
 	@echo "  ecs-stop-monitor- DBモニタリングタスクの停止"
+	@echo "  ecs-delete-monitor - DBモニタリング関連リソースの削除"
 	@echo "  clean           - ローカルDockerイメージのクリーンアップ"
 	@echo ""
 	@echo "オプション:"
@@ -48,6 +50,10 @@ deploy: apply
 
 destroy:
 	@echo "インフラストラクチャを削除中..."
+	@echo "ECSリソースを先に削除..."
+	@make ecs-delete-monitor || true
+	@make ecs-delete || true
+	@echo "Terraformリソースを削除..."
 	cd $(TERRAFORM_DIR) && aws-vault exec $(AWS_VAULT_PROFILE) -- terraform destroy
 
 # Docker operations
@@ -98,18 +104,39 @@ ecs-exec:
 	@echo "ECSコンテナに接続中..."
 	cd $(ECSPRESSO_DIR) && aws-vault exec $(AWS_VAULT_PROFILE) -- ecspresso exec --config ecspresso.yml --container app -- /bin/bash
 
-ecs-update: docker-push ecs-deploy
+ecs-update: docker-push
 	@echo "🚀 ECSサービスの更新完了!"
 
 # ECS monitoring operations
 ecs-run-monitor:
 	@echo "DBモニタリングタスクを実行中（リアルタイムログ表示）..."
-	cd $(ECSPRESSO_DIR) && aws-vault exec $(AWS_VAULT_PROFILE) -- ecspresso run --config ecspresso-monitor.yml --watch-container db-monitor
+	@echo "Ctrl+Cで停止できます"
+	@bash -c 'trap "echo \"\n📥 Ctrl+C detected, stopping monitor task...\"; aws-vault exec $(AWS_VAULT_PROFILE) -- aws ecs list-tasks --cluster aurora-failover-test-cluster --family aurora-failover-db-monitor --query \"taskArns[0]\" --output text | xargs -I {} aws-vault exec $(AWS_VAULT_PROFILE) -- aws ecs stop-task --cluster aurora-failover-test-cluster --task {} > /dev/null; exit 0" INT; cd $(ECSPRESSO_DIR) && aws-vault exec $(AWS_VAULT_PROFILE) -- ecspresso run --config ecspresso-monitor.yml --watch-container db-monitor'
 
 ecs-stop-monitor:
 	@echo "DBモニタリングタスクを停止中..."
-	cd $(ECSPRESSO_DIR) && aws-vault exec $(AWS_VAULT_PROFILE) -- aws ecs list-tasks --cluster aurora-failover-test-cluster --family aurora-failover-db-monitor --query 'taskArns[0]' --output text | \
-	xargs -I {} aws-vault exec $(AWS_VAULT_PROFILE) -- aws ecs stop-task --cluster aurora-failover-test-cluster --task {}
+	@TASK_ARN=$$(cd $(ECSPRESSO_DIR) && aws-vault exec $(AWS_VAULT_PROFILE) -- aws ecs list-tasks --cluster aurora-failover-test-cluster --family aurora-failover-db-monitor --query 'taskArns[0]' --output text); \
+	if [ "$$TASK_ARN" != "None" ] && [ -n "$$TASK_ARN" ]; then \
+		aws-vault exec $(AWS_VAULT_PROFILE) -- aws ecs stop-task --cluster aurora-failover-test-cluster --task $$TASK_ARN > /dev/null; \
+		echo "モニタリングタスクを停止しました"; \
+	else \
+		echo "実行中のモニタリングタスクはありません"; \
+	fi
+
+# ECS service deletion with ecspresso
+ecs-delete:
+	@echo "ECSサービスを削除中..."
+	@echo "サービスを0にスケール..."
+	cd $(ECSPRESSO_DIR) && aws-vault exec $(AWS_VAULT_PROFILE) -- ecspresso scale --config ecspresso.yml --tasks 0 || true
+	@echo "サービスを削除..."
+	cd $(ECSPRESSO_DIR) && aws-vault exec $(AWS_VAULT_PROFILE) -- ecspresso delete --config ecspresso.yml --force || true
+
+ecs-delete-monitor:
+	@echo "DBモニタリング関連リソースを削除中..."
+	@echo "実行中のモニタリングタスクを停止..."
+	@make ecs-stop-monitor || true
+	@echo "モニター用サービスを削除..."
+	cd $(ECSPRESSO_DIR) && aws-vault exec $(AWS_VAULT_PROFILE) -- ecspresso delete --config ecspresso-monitor.yml --force || true
 
 # Show terraform outputs
 outputs:

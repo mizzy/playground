@@ -1,6 +1,5 @@
 {
   "serviceName": "aurora-failover-db-monitor-run",
-  "cluster": "{{ tfstate `aws_ecs_cluster.aurora_failover.arn` }}",
   "taskDefinition": "aurora-failover-db-monitor",
   "desiredCount": 0,
   "launchType": "FARGATE",
@@ -19,8 +18,7 @@
     }
   },
   "enableExecuteCommand": true,
-  "enableLogging": true,
-  "propagateTags": "TASK_DEFINITION",
+    "propagateTags": "TASK_DEFINITION",
   "tags": [
     {
       "key": "Environment",
