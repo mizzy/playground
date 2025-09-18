@@ -2,6 +2,7 @@
 resource "aws_ecr_repository" "aurora_failover_app" {
   name                 = "${var.name_prefix}-typescript-app"
   image_tag_mutability = "MUTABLE"
+  force_delete         = true
 
   image_scanning_configuration {
     scan_on_push = true
