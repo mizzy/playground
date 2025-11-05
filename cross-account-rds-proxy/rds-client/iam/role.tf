@@ -114,6 +114,11 @@ data "aws_iam_policy_document" "terraform" {
       "ec2:RevokeSecurityGroupIngress",
       "ec2:DescribeNetworkInterfaces",
       "ec2:DescribeNetworkAcls",
+      "ec2:CreateVpcEndpoint",
+      "ec2:DescribeVpcEndpoints",
+      "ec2:DeleteVpcEndpoints",
+      "ec2:ModifyVpcEndpoint",
+      "ec2:DescribePrefixLists",
     ]
     resources = ["*"]
   }
@@ -151,9 +156,36 @@ data "aws_iam_policy_document" "terraform" {
   statement {
     effect = "Allow"
     actions = [
+      "iam:GetRole",
+      "iam:DeleteServiceLinkedRole",
+      "iam:GetServiceLinkedRoleDeletionStatus",
+    ]
+    resources = [
+      "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/aws-service-role/ecs.amazonaws.com/AWSServiceRoleForECS",
+    ]
+  }
+
+  statement {
+    effect = "Allow"
+    actions = [
       "ecs:RunTask",
       "ecs:DescribeTasks",
       "ecs:StopTask",
+    ]
+    resources = ["*"]
+  }
+
+  statement {
+    effect = "Allow"
+    actions = [
+      "ecr:CreateRepository",
+      "ecr:DescribeRepositories",
+      "ecr:DeleteRepository",
+      "ecr:PutImageTagMutability",
+      "ecr:PutImageScanningConfiguration",
+      "ecr:TagResource",
+      "ecr:ListTagsForResource",
+      "ecr:UntagResource",
     ]
     resources = ["*"]
   }

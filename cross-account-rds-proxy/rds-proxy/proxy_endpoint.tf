@@ -3,11 +3,11 @@
 
 # Data source to get shared subnets
 data "aws_subnet" "shared_subnet_a" {
-  id = "subnet-0698f48047898a1b3"
+  id = "subnet-00a72fd1987084d09"
 }
 
 data "aws_subnet" "shared_subnet_c" {
-  id = "subnet-0a8033f1513c2b258"
+  id = "subnet-09579c004ab8f5dad"
 }
 
 # Security group for RDS Proxy endpoint in shared VPC

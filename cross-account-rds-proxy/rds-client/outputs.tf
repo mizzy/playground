@@ -24,8 +24,8 @@ output "ecs_security_group_id" {
 }
 
 output "subnet_ids" {
-  description = "Public Subnet IDs"
-  value       = [aws_subnet.public_a.id, aws_subnet.public_c.id]
+  description = "Private Subnet IDs"
+  value       = [aws_subnet.private_a.id, aws_subnet.private_c.id]
 }
 
 output "test_command" {
@@ -35,6 +35,6 @@ output "test_command" {
       --cluster ${aws_ecs_cluster.main.name} \
       --task-definition ${aws_ecs_task_definition.postgres_test.family} \
       --launch-type FARGATE \
-      --network-configuration "awsvpcConfiguration={subnets=[${aws_subnet.public_a.id},${aws_subnet.public_c.id}],securityGroups=[${aws_security_group.ecs_tasks.id}],assignPublicIp=ENABLED}"
+      --network-configuration "awsvpcConfiguration={subnets=[${aws_subnet.private_a.id},${aws_subnet.private_c.id}],securityGroups=[${aws_security_group.ecs_tasks.id}],assignPublicIp=DISABLED}"
   EOT
 }

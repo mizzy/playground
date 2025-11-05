@@ -80,7 +80,7 @@ resource "aws_ecs_task_definition" "postgres_test" {
   container_definitions = jsonencode([
     {
       name  = "postgres-client"
-      image = "postgres:15"
+      image = "${aws_ecr_repository.postgres_client.repository_url}:15"
       command = [
         "sh",
         "-c",
