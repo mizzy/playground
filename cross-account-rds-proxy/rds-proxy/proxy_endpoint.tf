@@ -1,13 +1,29 @@
 # RDS Proxy Additional Endpoint in shared subnets
 # This endpoint allows cross-account access from rds-client account
 
-# Data source to get shared subnets
+# Data source to get shared subnets by CIDR block
 data "aws_subnet" "shared_subnet_a" {
-  id = "subnet-00a72fd1987084d09"
+  filter {
+    name   = "cidr-block"
+    values = ["10.0.1.0/24"]
+  }
+
+  filter {
+    name   = "owner-id"
+    values = ["914357407416"]
+  }
 }
 
 data "aws_subnet" "shared_subnet_c" {
-  id = "subnet-09579c004ab8f5dad"
+  filter {
+    name   = "cidr-block"
+    values = ["10.0.2.0/24"]
+  }
+
+  filter {
+    name   = "owner-id"
+    values = ["914357407416"]
+  }
 }
 
 # Security group for RDS Proxy endpoint in shared VPC
