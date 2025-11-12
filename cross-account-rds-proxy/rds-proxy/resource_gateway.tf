@@ -31,6 +31,28 @@ resource "aws_vpclattice_resource_configuration" "aurora" {
   }
 }
 
+# Resource Configuration for RDS Proxy (domain-name based)
+resource "aws_vpclattice_resource_configuration" "rds_proxy" {
+  name                        = "rds-proxy-config"
+  resource_gateway_identifier = aws_vpclattice_resource_gateway.main.id
+  type                        = "SINGLE"
+  protocol                    = "TCP"
+
+  # Domain-name based resource configuration for RDS Proxy
+  resource_configuration_definition {
+    dns_resource {
+      domain_name     = aws_db_proxy.main.endpoint
+      ip_address_type = "IPV4"
+    }
+  }
+
+  port_ranges = ["5432"]
+
+  tags = {
+    Name = "rds-proxy-resource-config"
+  }
+}
+
 # RAM Resource Share for Resource Configuration
 resource "aws_ram_resource_share" "resource_config" {
   name                      = "aurora-resource-config-share"
@@ -41,9 +63,15 @@ resource "aws_ram_resource_share" "resource_config" {
   }
 }
 
-# Associate Resource Configuration with RAM
-resource "aws_ram_resource_association" "resource_config" {
+# Associate Aurora Resource Configuration with RAM
+resource "aws_ram_resource_association" "aurora" {
   resource_arn       = aws_vpclattice_resource_configuration.aurora.arn
+  resource_share_arn = aws_ram_resource_share.resource_config.arn
+}
+
+# Associate RDS Proxy Resource Configuration with RAM
+resource "aws_ram_resource_association" "rds_proxy" {
+  resource_arn       = aws_vpclattice_resource_configuration.rds_proxy.arn
   resource_share_arn = aws_ram_resource_share.resource_config.arn
 }
 
@@ -60,6 +88,11 @@ output "resource_gateway_id" {
 
 output "resource_configuration_arn" {
   value = aws_vpclattice_resource_configuration.aurora.arn
+}
+
+output "resource_configuration_rds_proxy_arn" {
+  value       = aws_vpclattice_resource_configuration.rds_proxy.arn
+  description = "RDS Proxy Resource Configuration ARN"
 }
 
 output "resource_share_arn" {
