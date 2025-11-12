@@ -101,3 +101,16 @@ resource "aws_db_proxy_target" "main" {
   target_group_name     = aws_db_proxy_default_target_group.main.name
   db_cluster_identifier = aws_rds_cluster.main.cluster_identifier
 }
+
+# RDS Proxy Reader Endpoint for read/write split
+resource "aws_db_proxy_endpoint" "reader" {
+  db_proxy_name          = aws_db_proxy.main.name
+  db_proxy_endpoint_name = "rds-proxy-reader"
+  vpc_subnet_ids         = [aws_subnet.private_a.id, aws_subnet.private_c.id]
+  vpc_security_group_ids = [aws_security_group.proxy.id]
+  target_role            = "READ_ONLY"
+
+  tags = {
+    Name = "rds-proxy-reader-endpoint"
+  }
+}

@@ -1,14 +1,7 @@
-# Data source to get VPC Endpoint created by RDS Proxy
+# Data source to get VPC Endpoint created by RDS Proxy default endpoint
+# Note: Using explicit ID to distinguish from reader endpoint VPC Endpoint
 data "aws_vpc_endpoint" "rds_proxy" {
-  vpc_id = aws_vpc.main.id
-  state  = "available"
-
-  filter {
-    name   = "vpc-endpoint-type"
-    values = ["Interface"]
-  }
-
-  depends_on = [aws_db_proxy.main]
+  id = "vpce-03357c6219eec9777"
 }
 
 # Data source to get RDS Proxy VPC Endpoint ENI IDs
