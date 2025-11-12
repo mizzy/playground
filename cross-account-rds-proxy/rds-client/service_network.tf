@@ -18,13 +18,23 @@ resource "aws_vpclattice_service_network_vpc_association" "main" {
   }
 }
 
-# Associate shared Resource Configuration with Service Network
+# Associate shared Aurora Resource Configuration with Service Network
 resource "aws_vpclattice_service_network_resource_association" "aurora" {
   resource_configuration_identifier = "rcfg-043b04bc49c571d1c"
   service_network_identifier        = aws_vpclattice_service_network.main.id
 
   tags = {
     Name = "aurora-resource-association"
+  }
+}
+
+# Associate shared RDS Proxy Resource Configuration with Service Network
+resource "aws_vpclattice_service_network_resource_association" "rds_proxy" {
+  resource_configuration_identifier = "rcfg-0d79daf28b2309dc3"
+  service_network_identifier        = aws_vpclattice_service_network.main.id
+
+  tags = {
+    Name = "rds-proxy-resource-association"
   }
 }
 
