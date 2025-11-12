@@ -50,6 +50,19 @@ terraform apply
 terraform destroy
 ```
 
+**IMPORTANT: Infrastructure Management Rule**
+- **ALWAYS use Terraform for AWS resource creation, updates, and deletions**
+- **NEVER use AWS CLI commands** (such as `aws ec2 create-vpc-endpoint`, `aws vpc-lattice create-*`, etc.) **for resource management**
+- AWS CLI should only be used for:
+  - Read-only operations (describe, list, get)
+  - One-time manual operations explicitly requested by the user
+  - Testing and verification
+- This ensures:
+  - Infrastructure as Code principles
+  - State management and drift detection
+  - Reproducibility and version control
+  - Proper resource lifecycle management
+
 ### TypeScript/Deno Projects
 ```bash
 # Format code in lambda-note-type-system-with-typescript/

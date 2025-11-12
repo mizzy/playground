@@ -85,6 +85,33 @@ resource "aws_vpc_endpoint" "s3" {
   }
 }
 
+# VPC Lattice Resource Endpoint (for Aurora Resource Configuration)
+resource "aws_vpc_endpoint" "resource" {
+  vpc_id                     = aws_vpc.main.id
+  resource_configuration_arn = "arn:aws:vpc-lattice:ap-northeast-1:000767026184:resourceconfiguration/rcfg-043b04bc49c571d1c"
+  vpc_endpoint_type          = "Resource"
+  subnet_ids                 = [aws_subnet.private_a.id, aws_subnet.private_c.id]
+  security_group_ids         = [aws_security_group.vpc_endpoints.id]
+  private_dns_enabled        = true
+
+  tags = {
+    Name = "rds-client-resource-endpoint"
+  }
+}
+
+# VPC Lattice Service Network Endpoint (併用テスト)
+resource "aws_vpc_endpoint" "service_network" {
+  vpc_id              = aws_vpc.main.id
+  service_network_arn = aws_vpclattice_service_network.main.arn
+  vpc_endpoint_type   = "ServiceNetwork"
+  subnet_ids          = [aws_subnet.private_a.id, aws_subnet.private_c.id]
+  security_group_ids  = [aws_security_group.vpc_endpoints.id]
+
+  tags = {
+    Name = "rds-client-service-network-endpoint"
+  }
+}
+
 # Route Table for private subnets
 resource "aws_route_table" "private" {
   vpc_id = aws_vpc.main.id
@@ -114,6 +141,14 @@ resource "aws_security_group" "vpc_endpoints" {
   ingress {
     from_port   = 443
     to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = [aws_vpc.main.cidr_block]
+  }
+
+  # Allow PostgreSQL traffic for VPC Lattice
+  ingress {
+    from_port   = 5432
+    to_port     = 5432
     protocol    = "tcp"
     cidr_blocks = [aws_vpc.main.cidr_block]
   }

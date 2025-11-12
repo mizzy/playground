@@ -84,7 +84,7 @@ resource "aws_ecs_task_definition" "postgres_test" {
       command = [
         "sh",
         "-c",
-        "echo 'Testing connection to RDS Proxy...' && PGPASSWORD='${var.db_password}' psql -h ${var.rds_proxy_endpoint} -U ${var.db_username} -d ${var.db_name} -c 'SELECT version();' && echo 'Connection successful!' && sleep 30"
+        "echo 'Testing connection to RDS Proxy...' && echo 'Endpoint: ${var.rds_proxy_endpoint}' && echo 'Resolving DNS...' && nslookup ${var.rds_proxy_endpoint} && echo 'DNS resolution successful!' && echo 'Testing connection with 10s timeout...' && PGCONNECT_TIMEOUT=10 PGPASSWORD='${var.db_password}' psql -h ${var.rds_proxy_endpoint} -U ${var.db_username} -d ${var.db_name} -c 'SELECT version();' && echo 'Connection successful!' && sleep 30"
       ]
       logConfiguration = {
         logDriver = "awslogs"

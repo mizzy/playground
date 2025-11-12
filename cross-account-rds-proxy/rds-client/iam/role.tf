@@ -136,6 +136,10 @@ data "aws_iam_policy_document" "terraform" {
       "ram:ListResources",
       "ram:ListPrincipals",
       "ram:ListResourceSharePermissions",
+      "ram:UpdateResourceShare",
+      "ram:GetResourceShareInvitations",
+      "ram:AcceptResourceShareInvitation",
+      "ram:RejectResourceShareInvitation",
     ]
     resources = ["*"]
   }
@@ -188,5 +192,45 @@ data "aws_iam_policy_document" "terraform" {
       "ecr:UntagResource",
     ]
     resources = ["*"]
+  }
+
+  statement {
+    effect = "Allow"
+    actions = [
+      "vpc-lattice:CreateServiceNetwork",
+      "vpc-lattice:GetServiceNetwork",
+      "vpc-lattice:DeleteServiceNetwork",
+      "vpc-lattice:TagResource",
+      "vpc-lattice:ListTagsForResource",
+      "vpc-lattice:UntagResource",
+      "vpc-lattice:CreateServiceNetworkVpcAssociation",
+      "vpc-lattice:GetServiceNetworkVpcAssociation",
+      "vpc-lattice:UpdateServiceNetworkVpcAssociation",
+      "vpc-lattice:DeleteServiceNetworkVpcAssociation",
+      "vpc-lattice:ListServiceNetworkVpcAssociations",
+      "vpc-lattice:CreateServiceNetworkResourceAssociation",
+      "vpc-lattice:GetServiceNetworkResourceAssociation",
+      "vpc-lattice:DeleteServiceNetworkResourceAssociation",
+      "vpc-lattice:ListServiceNetworkResourceAssociations",
+      "vpc-lattice:ListServiceNetworks",
+      "vpc-lattice:GetResourceConfiguration",
+      "vpc-lattice:CreateServiceNetworkVpcEndpointAssociation",
+      "vpc-lattice:DeleteServiceNetworkVpcEndpointAssociation",
+      "vpc-lattice:GetServiceNetworkVpcEndpointAssociation",
+    ]
+    resources = ["*"]
+  }
+
+  statement {
+    effect = "Allow"
+    actions = [
+      "iam:CreateServiceLinkedRole",
+    ]
+    resources = ["*"]
+    condition {
+      test     = "StringLike"
+      variable = "iam:AWSServiceName"
+      values   = ["vpc-lattice.amazonaws.com"]
+    }
   }
 }
