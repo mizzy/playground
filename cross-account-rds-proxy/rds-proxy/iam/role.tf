@@ -73,6 +73,7 @@ data "aws_iam_policy_document" "terraform" {
       "ec2:CreateTags",
       "ec2:DescribeVpcs",
       "ec2:DescribeVpcAttribute",
+      "ec2:DescribeAccountAttributes",
       "ec2:DeleteVpc",
       "ec2:ModifyVpcAttribute",
       "ec2:CreateSecurityGroup",
@@ -80,6 +81,9 @@ data "aws_iam_policy_document" "terraform" {
       "ec2:DescribeSecurityGroups",
       "ec2:DescribeSubnets",
       "ec2:DescribeNetworkInterfaces",
+      "ec2:DescribeInternetGateways",
+      "ec2:DescribeVpcEndpoints",
+      "ec2:DescribePrefixLists",
       "ec2:DeleteSubnet",
       "ec2:DeleteSecurityGroup",
       "ec2:RevokeSecurityGroupEgress",
@@ -130,7 +134,7 @@ data "aws_iam_policy_document" "terraform" {
     condition {
       test     = "StringLike"
       variable = "iam:AWSServiceName"
-      values   = ["rds.amazonaws.com", "vpc-lattice.amazonaws.com"]
+      values   = ["rds.amazonaws.com", "vpc-lattice.amazonaws.com", "elasticloadbalancing.amazonaws.com"]
     }
   }
 
@@ -170,5 +174,87 @@ data "aws_iam_policy_document" "terraform" {
       "ram:ListResourceSharePermissions",
     ]
     resources = ["*"]
+  }
+
+  # RDS Proxy permissions
+  statement {
+    effect = "Allow"
+    actions = [
+      "rds:CreateDBProxy",
+      "rds:DescribeDBProxies",
+      "rds:DeleteDBProxy",
+      "rds:ModifyDBProxy",
+      "rds:AddTagsToResource",
+      "rds:ListTagsForResource",
+      "rds:RemoveTagsFromResource",
+      "rds:CreateDBProxyEndpoint",
+      "rds:DescribeDBProxyEndpoints",
+      "rds:DeleteDBProxyEndpoint",
+      "rds:ModifyDBProxyEndpoint",
+      "rds:RegisterDBProxyTargets",
+      "rds:DeregisterDBProxyTargets",
+      "rds:DescribeDBProxyTargets",
+      "rds:DescribeDBProxyTargetGroups",
+      "rds:ModifyDBProxyTargetGroup",
+    ]
+    resources = ["*"]
+  }
+
+  # Elastic Load Balancing permissions for NLB
+  statement {
+    effect = "Allow"
+    actions = [
+      "elasticloadbalancing:CreateLoadBalancer",
+      "elasticloadbalancing:DescribeLoadBalancers",
+      "elasticloadbalancing:DeleteLoadBalancer",
+      "elasticloadbalancing:ModifyLoadBalancerAttributes",
+      "elasticloadbalancing:DescribeLoadBalancerAttributes",
+      "elasticloadbalancing:CreateTargetGroup",
+      "elasticloadbalancing:DescribeTargetGroups",
+      "elasticloadbalancing:DeleteTargetGroup",
+      "elasticloadbalancing:ModifyTargetGroup",
+      "elasticloadbalancing:ModifyTargetGroupAttributes",
+      "elasticloadbalancing:DescribeTargetGroupAttributes",
+      "elasticloadbalancing:RegisterTargets",
+      "elasticloadbalancing:DeregisterTargets",
+      "elasticloadbalancing:DescribeTargetHealth",
+      "elasticloadbalancing:CreateListener",
+      "elasticloadbalancing:DescribeListeners",
+      "elasticloadbalancing:DescribeListenerAttributes",
+      "elasticloadbalancing:DeleteListener",
+      "elasticloadbalancing:ModifyListener",
+      "elasticloadbalancing:AddTags",
+      "elasticloadbalancing:DescribeTags",
+      "elasticloadbalancing:RemoveTags",
+    ]
+    resources = ["*"]
+  }
+
+  # VPC Endpoint Service permissions
+  statement {
+    effect = "Allow"
+    actions = [
+      "ec2:CreateVpcEndpointServiceConfiguration",
+      "ec2:DescribeVpcEndpointServiceConfigurations",
+      "ec2:DeleteVpcEndpointServiceConfigurations",
+      "ec2:ModifyVpcEndpointServiceConfiguration",
+      "ec2:ModifyVpcEndpointServicePermissions",
+      "ec2:DescribeVpcEndpointServicePermissions",
+      "ec2:DescribeVpcEndpointConnections",
+      "ec2:AcceptVpcEndpointConnections",
+      "ec2:RejectVpcEndpointConnections",
+    ]
+    resources = ["*"]
+  }
+
+  # IAM PassRole for RDS Proxy
+  statement {
+    effect = "Allow"
+    actions = [
+      "iam:PassRole",
+    ]
+    resources = [
+      "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/rds-proxy-role",
+    ]
   }
 }

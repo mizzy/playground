@@ -74,9 +74,10 @@ resource "aws_db_proxy" "main" {
     iam_auth    = "DISABLED"
     secret_arn  = aws_secretsmanager_secret.aurora_credentials.arn
   }
-  role_arn       = aws_iam_role.proxy.arn
-  vpc_subnet_ids = [aws_subnet.private_a.id, aws_subnet.private_c.id]
-  require_tls    = false
+  role_arn               = aws_iam_role.proxy.arn
+  vpc_subnet_ids         = [aws_subnet.private_a.id, aws_subnet.private_c.id]
+  vpc_security_group_ids = [aws_security_group.proxy.id]
+  require_tls            = false
 
   tags = {
     Name = "rds-proxy"
