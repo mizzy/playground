@@ -130,7 +130,45 @@ data "aws_iam_policy_document" "terraform" {
     condition {
       test     = "StringLike"
       variable = "iam:AWSServiceName"
-      values   = ["rds.amazonaws.com"]
+      values   = ["rds.amazonaws.com", "vpc-lattice.amazonaws.com"]
     }
+  }
+
+  statement {
+    effect = "Allow"
+    actions = [
+      "vpc-lattice:CreateResourceGateway",
+      "vpc-lattice:GetResourceGateway",
+      "vpc-lattice:DeleteResourceGateway",
+      "vpc-lattice:TagResource",
+      "vpc-lattice:ListTagsForResource",
+      "vpc-lattice:UntagResource",
+      "vpc-lattice:CreateResourceConfiguration",
+      "vpc-lattice:GetResourceConfiguration",
+      "vpc-lattice:DeleteResourceConfiguration",
+      "vpc-lattice:ListResourceConfigurations",
+      "vpc-lattice:ListResourceGateways",
+      "vpc-lattice:PutResourcePolicy",
+      "vpc-lattice:GetResourcePolicy",
+      "vpc-lattice:DeleteResourcePolicy",
+    ]
+    resources = ["*"]
+  }
+
+  statement {
+    effect = "Allow"
+    actions = [
+      "ram:CreateResourceShare",
+      "ram:GetResourceShares",
+      "ram:DeleteResourceShare",
+      "ram:UpdateResourceShare",
+      "ram:AssociateResourceShare",
+      "ram:DisassociateResourceShare",
+      "ram:GetResourceShareAssociations",
+      "ram:TagResource",
+      "ram:ListResources",
+      "ram:ListResourceSharePermissions",
+    ]
+    resources = ["*"]
   }
 }
