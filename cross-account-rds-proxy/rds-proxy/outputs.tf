@@ -27,3 +27,8 @@ output "proxy_security_group_id" {
   description = "RDS Proxy security group ID"
   value       = aws_security_group.proxy.id
 }
+
+output "rds_proxy_reader_endpoint" {
+  description = "RDS Proxy Reader endpoint for read-only queries"
+  value       = aws_db_proxy_endpoint.reader.endpoint
+}

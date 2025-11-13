@@ -53,6 +53,28 @@ resource "aws_vpclattice_resource_configuration" "rds_proxy" {
   }
 }
 
+# Resource Configuration for RDS Proxy Reader Endpoint (domain-name based)
+resource "aws_vpclattice_resource_configuration" "rds_proxy_reader" {
+  name                        = "rds-proxy-reader-config"
+  resource_gateway_identifier = aws_vpclattice_resource_gateway.main.id
+  type                        = "SINGLE"
+  protocol                    = "TCP"
+
+  # Domain-name based resource configuration for RDS Proxy Reader Endpoint
+  resource_configuration_definition {
+    dns_resource {
+      domain_name     = aws_db_proxy_endpoint.reader.endpoint
+      ip_address_type = "IPV4"
+    }
+  }
+
+  port_ranges = ["5432"]
+
+  tags = {
+    Name = "rds-proxy-reader-resource-config"
+  }
+}
+
 # RAM Resource Share for Resource Configuration
 resource "aws_ram_resource_share" "resource_config" {
   name                      = "aurora-resource-config-share"
@@ -75,6 +97,12 @@ resource "aws_ram_resource_association" "rds_proxy" {
   resource_share_arn = aws_ram_resource_share.resource_config.arn
 }
 
+# Associate RDS Proxy Reader Resource Configuration with RAM
+resource "aws_ram_resource_association" "rds_proxy_reader" {
+  resource_arn       = aws_vpclattice_resource_configuration.rds_proxy_reader.arn
+  resource_share_arn = aws_ram_resource_share.resource_config.arn
+}
+
 # Share with rds-client account
 resource "aws_ram_principal_association" "rds_client_account" {
   principal          = "914357407416"
@@ -93,6 +121,11 @@ output "resource_configuration_arn" {
 output "resource_configuration_rds_proxy_arn" {
   value       = aws_vpclattice_resource_configuration.rds_proxy.arn
   description = "RDS Proxy Resource Configuration ARN"
+}
+
+output "resource_configuration_rds_proxy_reader_arn" {
+  value       = aws_vpclattice_resource_configuration.rds_proxy_reader.arn
+  description = "RDS Proxy Reader Resource Configuration ARN"
 }
 
 output "resource_share_arn" {

@@ -38,6 +38,16 @@ resource "aws_vpclattice_service_network_resource_association" "rds_proxy" {
   }
 }
 
+# Associate shared RDS Proxy Reader Resource Configuration with Service Network
+resource "aws_vpclattice_service_network_resource_association" "rds_proxy_reader" {
+  resource_configuration_identifier = "rcfg-0c5cf3eaea7a0bc7f"
+  service_network_identifier        = aws_vpclattice_service_network.main.id
+
+  tags = {
+    Name = "rds-proxy-reader-resource-association"
+  }
+}
+
 # Outputs
 output "service_network_id" {
   value = aws_vpclattice_service_network.main.id

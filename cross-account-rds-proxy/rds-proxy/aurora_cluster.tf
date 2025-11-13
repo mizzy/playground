@@ -64,7 +64,7 @@ resource "aws_rds_cluster" "main" {
   }
 }
 
-# Aurora Instance
+# Aurora Writer Instance
 resource "aws_rds_cluster_instance" "main" {
   identifier         = "rds-proxy-instance-1"
   cluster_identifier = aws_rds_cluster.main.id
@@ -74,5 +74,18 @@ resource "aws_rds_cluster_instance" "main" {
 
   tags = {
     Name = "rds-proxy-instance-1"
+  }
+}
+
+# Aurora Reader Instance
+resource "aws_rds_cluster_instance" "reader" {
+  identifier         = "rds-proxy-instance-2"
+  cluster_identifier = aws_rds_cluster.main.id
+  instance_class     = "db.t3.medium"
+  engine             = aws_rds_cluster.main.engine
+  engine_version     = "15.10"
+
+  tags = {
+    Name = "rds-proxy-instance-2-reader"
   }
 }
