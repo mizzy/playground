@@ -61,6 +61,14 @@ resource "aws_security_group" "rds" {
     self        = true
   }
 
+  ingress {
+    description     = "PostgreSQL from RDS Proxy"
+    from_port       = 5432
+    to_port         = 5432
+    protocol        = "tcp"
+    security_groups = [aws_security_group.proxy.id]
+  }
+
   egress {
     description = "Allow all outbound"
     from_port   = 0
