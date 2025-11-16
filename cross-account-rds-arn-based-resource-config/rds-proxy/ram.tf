@@ -1,10 +1,10 @@
 # RAM Resource Share for Resource Configuration
 resource "aws_ram_resource_share" "resource_config" {
-  name                      = "rds-resource-config-share"
+  name                      = "aurora-resource-config-share"
   allow_external_principals = true
 
   tags = {
-    Name = "rds-resource-config-share"
+    Name = "aurora-resource-config-share"
   }
 }
 
