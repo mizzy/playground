@@ -7,22 +7,34 @@ resource "aws_vpclattice_service_network" "main" {
   }
 }
 
-# VPC Endpoint for Service Network (ServiceNetwork type)
-# This enables access to resources in the Service Network
-resource "aws_vpc_endpoint" "service_network" {
-  vpc_id              = aws_vpc.main.id
-  vpc_endpoint_type   = "ServiceNetwork"
-  subnet_ids          = [aws_subnet.private_a.id, aws_subnet.private_c.id]
-  security_group_ids  = [aws_security_group.ecs_tasks.id]
-  private_dns_enabled = true
-
-  # Use service_network_arn instead of service_name for ServiceNetwork type
-  service_network_arn = aws_vpclattice_service_network.main.arn
+# VPC Association with Service Network (instead of VPC Endpoint)
+# This directly associates the VPC with the Service Network
+resource "aws_vpclattice_service_network_vpc_association" "main" {
+  vpc_identifier             = aws_vpc.main.id
+  service_network_identifier = aws_vpclattice_service_network.main.id
+  security_group_ids         = [aws_security_group.ecs_tasks.id]
 
   tags = {
-    Name = "rds-service-network-endpoint"
+    Name = "rds-client-vpc-association"
   }
 }
+
+# Commented out: VPC Endpoint for Service Network (ServiceNetwork type)
+# This was the previous approach using VPC Endpoint
+# resource "aws_vpc_endpoint" "service_network" {
+#   vpc_id              = aws_vpc.main.id
+#   vpc_endpoint_type   = "ServiceNetwork"
+#   subnet_ids          = [aws_subnet.private_a.id, aws_subnet.private_c.id]
+#   security_group_ids  = [aws_security_group.ecs_tasks.id]
+#   private_dns_enabled = true
+#
+#   # Use service_network_arn instead of service_name for ServiceNetwork type
+#   service_network_arn = aws_vpclattice_service_network.main.arn
+#
+#   tags = {
+#     Name = "rds-service-network-endpoint"
+#   }
+# }
 
 # Associate all shared Resource Configurations with Service Network
 # We use for_each to create an association for each Resource Configuration shared via RAM
