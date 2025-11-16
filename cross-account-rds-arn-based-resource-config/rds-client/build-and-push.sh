@@ -13,7 +13,7 @@ aws-vault exec rds-client -- aws ecr get-login-password --region $REGION | docke
 
 # Build Docker image
 echo "Building Docker image..."
-docker build -t postgres-client .
+docker build --platform linux/amd64 -t postgres-client .
 
 # Tag image
 echo "Tagging image..."

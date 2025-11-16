@@ -3,14 +3,14 @@ output "vpc_id" {
   value       = aws_vpc.main.id
 }
 
-output "resource_endpoint_id" {
-  description = "ID of the VPC Lattice Resource Endpoint"
-  value       = aws_vpc_endpoint.resource.id
+output "service_network_id" {
+  description = "ID of the VPC Lattice Service Network"
+  value       = aws_vpclattice_service_network.main.id
 }
 
-output "resource_endpoint_dns_name" {
-  description = "DNS names of the Resource Endpoint"
-  value       = aws_vpc_endpoint.resource.dns_entry
+output "service_network_arn" {
+  description = "ARN of the VPC Lattice Service Network"
+  value       = aws_vpclattice_service_network.main.arn
 }
 
 output "ecs_cluster_name" {

@@ -22,3 +22,8 @@ output "resource_configuration_id" {
   description = "ID of the Resource Configuration"
   value       = aws_vpclattice_resource_configuration.rds_cluster.id
 }
+
+output "resource_share_arn" {
+  description = "ARN of the RAM Resource Share"
+  value       = aws_ram_resource_share.resource_config.arn
+}
