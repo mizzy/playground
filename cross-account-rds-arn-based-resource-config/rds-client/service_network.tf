@@ -24,15 +24,18 @@ resource "aws_vpc_endpoint" "service_network" {
   }
 }
 
-# Associate shared Aurora Resource Configuration with Service Network
-resource "aws_vpclattice_service_network_resource_association" "aurora" {
+# Associate all shared Resource Configurations with Service Network
+# We use for_each to create an association for each Resource Configuration shared via RAM
+resource "aws_vpclattice_service_network_resource_association" "resources" {
+  for_each = toset(aws_ram_resource_share_accepter.resource_config.resources)
+
   # Extract Resource Configuration ID from ARN (last part after the last '/')
-  resource_configuration_identifier = element(split("/", aws_ram_resource_share_accepter.resource_config.resources[0]), length(split("/", aws_ram_resource_share_accepter.resource_config.resources[0])) - 1)
+  resource_configuration_identifier = element(split("/", each.value), length(split("/", each.value)) - 1)
   service_network_identifier        = aws_vpclattice_service_network.main.id
 
   depends_on = [aws_ram_resource_share_accepter.resource_config]
 
   tags = {
-    Name = "aurora-resource-association"
+    Name = "resource-association-${element(split("/", each.value), length(split("/", each.value)) - 1)}"
   }
 }

@@ -12,6 +12,10 @@ terraform {
 provider "aws" {
   region = "ap-northeast-1"
 
+  allowed_account_ids = [
+    "000767026184",
+  ]
+
   default_tags {
     tags = {
       project = "cross-account-rds-arn-based"
