@@ -84,6 +84,52 @@ deno fmt
 ### Project Independence
 Each directory represents a completely independent project with its own dependencies, build processes, and purposes. There are no shared libraries or cross-project dependencies.
 
+### Docker and ECS Fargate Best Practices
+
+**CRITICAL: Architecture Compatibility for ECS Fargate**
+
+AWS ECS Fargate on X86_64 requires **amd64** Docker images. When working on M1/M2 Macs (arm64 architecture), the `--platform linux/amd64` flag often does NOT work correctly due to Docker's local caching behavior.
+
+**❌ DO NOT use this approach (fails on M1/M2 Macs):**
+```bash
+# This will still pull arm64 on M1/M2 Macs despite the --platform flag
+docker pull --platform linux/amd64 postgres:15
+docker tag postgres:15 $ECR_URI
+docker push $ECR_URI  # Pushes wrong architecture!
+```
+
+**✅ ALWAYS use digest-based pull for correct architecture:**
+```bash
+# Step 1: Get the amd64 digest from the manifest
+AMD64_DIGEST=$(docker manifest inspect postgres:15 | \
+  jq -r '.manifests[] | select(.platform.architecture=="amd64" and .platform.os=="linux") | .digest')
+
+# Step 2: Pull by digest (guarantees correct architecture)
+docker pull postgres@$AMD64_DIGEST
+
+# Step 3: Tag and push
+docker tag postgres@$AMD64_DIGEST $ECR_URI:amd64
+docker push $ECR_URI:amd64
+
+# Step 4: Verify architecture before pushing
+docker image inspect $ECR_URI:amd64 --format 'Architecture: {{.Architecture}}'
+# Must output: Architecture: amd64
+```
+
+**Common Error Symptoms:**
+- ECS task logs show: `[FATAL tini] exec docker-entrypoint.sh failed: Exec format error`
+- Task immediately transitions from PENDING → STOPPED
+- This indicates architecture mismatch (pushed arm64 image to Fargate X86_64)
+
+**Best Practice: Use Makefiles**
+- For projects with Docker images for ECS, ALWAYS create a `Makefile` with proper architecture handling
+- See `cross-account-rds-pattern-a/rds-client/Makefile` for a complete example
+- The Makefile should:
+  - Use `docker manifest inspect` to get the correct digest
+  - Pull by digest (not by tag with --platform flag)
+  - Verify architecture before pushing
+  - Include all necessary build, push, and test commands
+
 ## Code Formatting Guidelines
 
 ### Terminal Copy-Paste Compatibility
