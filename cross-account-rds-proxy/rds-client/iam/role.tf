@@ -233,4 +233,20 @@ data "aws_iam_policy_document" "terraform" {
       values   = ["vpc-lattice.amazonaws.com"]
     }
   }
+
+  statement {
+    effect = "Allow"
+    actions = [
+      "route53:CreateHostedZone",
+      "route53:GetHostedZone",
+      "route53:DeleteHostedZone",
+      "route53:ListHostedZones",
+      "route53:ChangeResourceRecordSets",
+      "route53:GetChange",
+      "route53:ListResourceRecordSets",
+      "route53:ListTagsForResource",
+      "route53:ChangeTagsForResource",
+    ]
+    resources = ["*"]
+  }
 }
