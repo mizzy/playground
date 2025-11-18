@@ -43,26 +43,32 @@ graph TB
             Status: SUCCESS"]
             RE_Writer["Resource Endpoint: RDS Proxy Writer
             (private_dns_enabled=true)
-            Status: FAILED"]
+            Status: SUCCESS"]
             RE_Reader["Resource Endpoint: RDS Proxy Reader
             (private_dns_enabled=true)
-            Status: UNTESTED"]
+            Status: DNS OK, RDS Config Issue"]
+            PHZ["Private Hosted Zone
+            (Manual)
+            A Records to Resource Endpoint IPs"]
             ECS["ECS Fargate Tasks
             (PostgreSQL Client)"]
 
             ECS -.->|Connected| RE_Aurora
-            ECS -.->|Timeout| RE_Writer
-            ECS -.->|Not Tested| RE_Reader
+            ECS -.->|Connected| RE_Writer
+            ECS -.->|DNS Works| RE_Reader
+            RE_Writer -.->|DNS Lookup| PHZ
+            RE_Reader -.->|DNS Lookup| PHZ
         end
     end
 
     RG ==>|ARN-based with Auto PHZ| RE_Aurora
-    RG ==>|DNS-based without PHZ| RE_Writer
-    RG ==>|DNS-based without PHZ| RE_Reader
+    RG ==>|DNS-based with Manual PHZ| RE_Writer
+    RG ==>|DNS-based with Manual PHZ| RE_Reader
 
     style RE_Aurora fill:#90EE90,stroke:#333,stroke-width:2px
-    style RE_Writer fill:#FFB6C1,stroke:#333,stroke-width:2px
+    style RE_Writer fill:#90EE90,stroke:#333,stroke-width:2px
     style RE_Reader fill:#FFD700,stroke:#333,stroke-width:2px
+    style PHZ fill:#B0E0E6,stroke:#333,stroke-width:2px
     style Aurora fill:#E6F3FF,stroke:#333,stroke-width:2px
     style Proxy fill:#E6F3FF,stroke:#333,stroke-width:2px
 ```
@@ -73,33 +79,120 @@ graph TB
 |----------|----------|-------|-----------|--------------|
 | Aurora Cluster (Writer) | Resource Endpoint (ARN-based) | `pattern-a-aurora-cluster.cluster-cpo0q8m8sxzx.ap-northeast-1.rds.amazonaws.com` | ✅ **接続成功** | 10.1.2.96 |
 | Aurora Cluster (Reader) | Resource Endpoint (ARN-based) | `pattern-a-aurora-cluster.cluster-ro-cpo0q8m8sxzx.ap-northeast-1.rds.amazonaws.com` | 🔄 未テスト | - |
-| RDS Proxy Writer | Resource Endpoint (DNS-based) | `pattern-a-rds-proxy.proxy-cpo0q8m8sxzx.ap-northeast-1.rds.amazonaws.com` | ❌ **接続不可（タイムアウト）** | - |
-| RDS Proxy Reader | Resource Endpoint (DNS-based) | `pattern-a-rds-proxy-reader.endpoint.proxy-cpo0q8m8sxzx.ap-northeast-1.rds.amazonaws.com` | 🔄 未テスト | - |
+| RDS Proxy Writer | Resource Endpoint (DNS-based) + PHZ | `pattern-a-rds-proxy.proxy-cpo0q8m8sxzx.ap-northeast-1.rds.amazonaws.com` | ✅ **接続成功** | 10.1.2.96 |
+| RDS Proxy Reader | Resource Endpoint (DNS-based) + PHZ | `pattern-a-rds-proxy-reader.endpoint.proxy-cpo0q8m8sxzx.ap-northeast-1.rds.amazonaws.com` | ⚠️ **RDS Proxy設定エラー** | N/A |
 
 ### テスト実施日: 2025-11-18
 
-**成功したテスト詳細:**
+**テスト詳細:**
 ```
-Test 1: Aurora Cluster
+Test 1: Aurora Cluster (ARN-based)
 - Endpoint: pattern-a-aurora-cluster.cluster-cpo0q8m8sxzx.ap-northeast-1.rds.amazonaws.com
 - User: postgres
 - DB Server IP: 10.1.2.96
 - PostgreSQL Version: 15.10 on x86_64-pc-linux-gnu
-- 接続時間: 即座
+- Private Hosted Zone: Auto-created by VPC Lattice
+- Status: ✅ SUCCESS
+
+Test 2: RDS Proxy Writer (DNS-based + Manual PHZ)
+- Endpoint: pattern-a-rds-proxy.proxy-cpo0q8m8sxzx.ap-northeast-1.rds.amazonaws.com
+- User: postgres
+- DB Server IP: 10.1.2.96
+- PostgreSQL Version: 15.10 on x86_64-pc-linux-gnu
+- DNS Resolution: 10.0.1.117, 10.0.2.221 (Resource Endpoint IPs)
+- Private Hosted Zone: Manually created with A records
+- Status: ✅ SUCCESS
+
+Test 3: RDS Proxy Reader (DNS-based + Manual PHZ)
+- Endpoint: pattern-a-rds-proxy-reader.endpoint.proxy-cpo0q8m8sxzx.ap-northeast-1.rds.amazonaws.com
+- DNS Resolution: 10.0.1.125, 10.0.2.86 (Resource Endpoint IPs)
+- Private Hosted Zone: Manually created with A records
+- Status: ⚠️ RDS Proxy configuration issue
+- Error: "Target group doesnt have any associated read-only instances"
+- Note: Aurora cluster needs read replicas for reader endpoint
 ```
 
 ## 重要なポイント
 
 ### ✅ 動作するケース
-- **Aurora (ARN-based Resource Configuration)**:
-  - ARN-basedのResource Configurationは自動的にPrivate Hosted Zoneを作成
-  - 標準DNS名（`*.rds.amazonaws.com`）で接続可能
 
-### ❌ 動作しないケース
-- **RDS Proxy (DNS-based Resource Configuration)**:
-  - DNS-basedのResource ConfigurationはPrivate Hosted Zoneを作成しない
-  - 標準DNS名での接続は不可
-  - Lattice DNS名もなし（Service Networkを使用していないため）
+#### 1. Aurora (ARN-based Resource Configuration)
+- ARN-basedのResource Configurationは**自動的にPrivate Hosted Zoneを作成**
+- 標準DNS名（`*.rds.amazonaws.com`）で接続可能
+- 追加設定不要
+
+#### 2. RDS Proxy (DNS-based Resource Configuration + Manual PHZ)
+- DNS-basedのResource Configurationは**Private Hosted Zoneを自動作成しない**
+- **解決策**: 手動でPrivate Hosted Zoneを作成し、Resource Endpoint IPsへのA recordsを追加
+- `private_hosted_zones.tf` を参照
+- DNS名での接続が可能になる
+
+### ⚠️ 注意事項
+
+#### Resource Endpoint IPの変動リスク
+
+**⚠️ 重要**: DNS-based Resource ConfigurationではPrivate Hosted Zoneを手動作成し、A recordsでResource Endpoint IPsを直接指定しているため、IPアドレス変更のリスクがあります。
+
+**リスク詳細**:
+- Resource Endpoint IPは以下の場合に変更される可能性があります:
+  - VPC Endpointの再作成時
+  - ネットワーク構成の変更時
+  - AWS側のメンテナンス（稀）
+- IPアドレスが変更されると、DNS解決は成功するが実際の接続が失敗する可能性があります
+- 複数のAZに分散しているため、一部のIPが変わっても他のIPで継続可能な場合があります
+
+**現在の対策**:
+- ✅ **動的IP取得**: Terraformがdata sourceでIPアドレスを自動取得（`private_hosted_zones.tf`）
+- ✅ **短いTTL**: DNS TTLを60秒に設定し、変更時の影響を最小限に
+- ✅ **Terraform管理**: 次回の`terraform plan`で自動的にIP変更を検知
+
+**推奨される運用**:
+1. **定期的なTerraform実行** (短期対策):
+   ```bash
+   cd cross-account-rds-pattern-a/rds-client
+   aws-vault exec rds-client -- terraform plan
+   # IPアドレスの変更が検出された場合
+   aws-vault exec rds-client -- terraform apply
+   ```
+
+2. **CI/CDパイプラインでの自動チェック** (中期対策):
+   - GitHub ActionsやCI/CDツールで毎日terraform planを自動実行
+   - IPアドレスの変更を検出したら通知またはauto-apply
+
+3. **EventBridge + Lambda関数での完全自動化** (長期対策):
+   - VPC Endpointの変更イベントを監視
+   - Lambda関数でRoute53 A recordsを自動更新
+
+**手動確認コマンド**:
+接続が失敗した場合、以下のコマンドでIPを確認できます:
+```bash
+# Writer Endpoint IPs
+aws-vault exec rds-client -- aws ec2 describe-vpc-endpoints \
+  --vpc-endpoint-ids vpce-023cfe82c2d15365c \
+  --query 'VpcEndpoints[0].NetworkInterfaceIds[]' --output text | \
+  xargs -I {} aws ec2 describe-network-interfaces \
+  --network-interface-ids {} \
+  --query 'NetworkInterfaces[*].[NetworkInterfaceId,PrivateIpAddress,AvailabilityZone]' \
+  --output table
+
+# Reader Endpoint IPs
+aws-vault exec rds-client -- aws ec2 describe-vpc-endpoints \
+  --vpc-endpoint-ids vpce-040d0d13a0cbacac6 \
+  --query 'VpcEndpoints[0].NetworkInterfaceIds[]' --output text | \
+  xargs -I {} aws ec2 describe-network-interfaces \
+  --network-interface-ids {} \
+  --query 'NetworkInterfaces[*].[NetworkInterfaceId,PrivateIpAddress,AvailabilityZone]' \
+  --output table
+```
+
+**実際のリスク評価**:
+- **変更頻度**: VPC EndpointのIPアドレスはめったに変更されません
+- **影響範囲**: DNSキャッシュ（TTL 60秒）があるため、即座に全体に影響するわけではありません
+- **検知可能性**: Terraformで管理しているため、完全に「見えない」変更ではありません
+
+#### Reader Endpoint の制限
+- RDS Proxy Reader endpointは、Aurora clusterにread replicasが存在する場合のみ機能
+- Read replicasがない場合、"Target group doesnt have any associated read-only instances" エラーが発生
 
 ## デプロイ手順
 
@@ -223,33 +316,46 @@ make ecs-stop
 aws-vault exec rds-client -- terraform destroy
 ```
 
-## 制限事項と今後の課題
+## 結論と学び
 
-### 確認済みの制限事項
+### 検証結果サマリー
 
 1. ✅ **Aurora Cluster (ARN-based)**: 正常に動作
    - Private Hosted Zoneが自動作成される
    - 標準DNS名（`*.rds.amazonaws.com`）で接続可能
+   - 追加設定不要
 
-2. ❌ **RDS Proxy (DNS-based)**: 動作しない
-   - Private Hosted Zoneが作成されない
-   - DNS解決またはルーティングの問題
-   - タイムアウトで接続不可
+2. ✅ **RDS Proxy Writer (DNS-based + Manual PHZ)**: 解決済み・動作確認
+   - **課題**: DNS-basedのResource ConfigurationはPrivate Hosted Zoneを自動作成しない
+   - **解決策**: 手動でPrivate Hosted Zoneを作成し、Resource Endpoint IPsへのA recordsを追加
+   - **実装**: `private_hosted_zones.tf` にて実装
+   - **結果**: 接続成功・正常動作
 
-3. ⚠️ **ECS Exec**: プライベートサブネットでは追加設定が必要
+3. ⚠️ **RDS Proxy Reader (DNS-based + Manual PHZ)**: DNS解決は成功、機能制限あり
+   - DNS解決とルーティングは正常
+   - Aurora clusterにread replicasが必要（現在未設定のため接続エラー）
+
+4. ⚠️ **ECS Exec**: プライベートサブネットでは追加設定が必要
    - SSM VPCエンドポイントが必要
-   - または CloudWatch Logsでテスト結果を確認
+   - 代替策: CloudWatch Logsでテスト結果を確認（実装済み）
 
-### 今後の調査項目
+### 重要な発見
 
-1. **RDS Proxy接続失敗の原因特定**:
-   - DNS-based Resource Configurationの設定確認
-   - Resource EndpointのDNS解決テスト
-   - VPC Latticeのルーティング検証
+**DNS-based Resource Configurationの制限と回避策**:
+- VPC Latticeは、DNS-basedのResource ConfigurationでPrivate Hosted Zoneを自動作成しない
+- 手動でPHZとA recordsを作成することで、RDS Proxyへの接続が可能
+- **ただし、Resource Endpoint IPが変更されるリスクあり**（監視・更新が必要）
+
+### 今後の検討事項
+
+1. **Resource Endpoint IP変更の自動検出と更新**:
+   - Lambda関数でIPの変更を検出
+   - Route53 A recordsを自動更新するメカニズム
 
 2. **代替パターンの検証**:
    - Pattern B: Service Network + Service Network Endpoint
    - Pattern C: その他のアプローチ
 
-3. **SSM VPCエンドポイントの追加**:
-   - ECS Execを有効化するためのインフラ追加
+3. **本番環境での推奨事項**:
+   - ARN-basedのResource Configurationを優先使用
+   - DNS-basedを使用する場合、IP変更の監視体制を整備

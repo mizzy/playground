@@ -38,3 +38,16 @@ resource "aws_rds_cluster_instance" "writer" {
     Name = "pattern-a-aurora-writer"
   }
 }
+
+# Aurora Reader Instance
+resource "aws_rds_cluster_instance" "reader" {
+  identifier         = "pattern-a-aurora-reader"
+  cluster_identifier = aws_rds_cluster.main.id
+  instance_class     = "db.t3.medium"
+  engine             = aws_rds_cluster.main.engine
+  engine_version     = "15.10"
+
+  tags = {
+    Name = "pattern-a-aurora-reader"
+  }
+}

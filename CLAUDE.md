@@ -130,6 +130,36 @@ docker image inspect $ECR_URI:amd64 --format 'Architecture: {{.Architecture}}'
   - Verify architecture before pushing
   - Include all necessary build, push, and test commands
 
+## Git and GitHub Workflow
+
+**CRITICAL: Git Commit and PR Policy**
+
+- **NEVER create git commits or pull requests without explicit user instruction**
+- **NEVER run `git commit`, `git push`, or `gh pr create` unless the user explicitly asks**
+- When work is completed, report the changes and wait for user instruction
+- User will decide when and how to commit and create PRs
+
+**Allowed git operations without explicit permission:**
+- `git status` - Check repository status
+- `git diff` - View changes
+- `git log` - View commit history
+- `git branch` - List branches
+- Read-only operations
+
+**Prohibited operations without explicit permission:**
+- `git add` - Staging changes
+- `git commit` - Creating commits
+- `git push` - Pushing to remote
+- `gh pr create` - Creating pull requests
+- `git merge` - Merging branches
+- Any operation that modifies git history or remote state
+
+**Correct workflow:**
+1. Make code changes as requested
+2. Report completion with summary of changes
+3. Wait for user to explicitly request git operations
+4. Only then perform git commit/push/PR creation if asked
+
 ## Code Formatting Guidelines
 
 ### Terminal Copy-Paste Compatibility

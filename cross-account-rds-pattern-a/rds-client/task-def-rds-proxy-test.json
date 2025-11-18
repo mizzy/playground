@@ -1,0 +1,29 @@
+{
+  "family": "pattern-a-rds-proxy-test",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "256",
+  "memory": "512",
+  "executionRoleArn": "arn:aws:iam::914357407416:role/pattern-a-ecs-task-execution-role",
+  "taskRoleArn": "arn:aws:iam::914357407416:role/pattern-a-ecs-task-role",
+  "containerDefinitions": [
+    {
+      "name": "postgres-client",
+      "image": "914357407416.dkr.ecr.ap-northeast-1.amazonaws.com/pattern-a-postgres-client:amd64",
+      "command": [
+        "/bin/bash",
+        "-c",
+        "echo '=== VPC Lattice Pattern A - RDS Proxy DNS Test ===' && echo 'Start time:' $(date) && echo && echo '[DNS Test] Writer endpoint' && getent hosts pattern-a-rds-proxy.proxy-cpo0q8m8sxzx.ap-northeast-1.rds.amazonaws.com || echo 'DNS lookup failed' && echo && echo '[DNS Test] Reader endpoint' && getent hosts pattern-a-rds-proxy-reader.endpoint.proxy-cpo0q8m8sxzx.ap-northeast-1.rds.amazonaws.com || echo 'DNS lookup failed' && echo && echo '[Connection Test] RDS Proxy Writer' && export PGPASSWORD=password123 && timeout 30 psql -h pattern-a-rds-proxy.proxy-cpo0q8m8sxzx.ap-northeast-1.rds.amazonaws.com -U postgres -d testdb -c \"SELECT 'RDS Proxy Writer' as endpoint, current_user, inet_server_addr() as db_ip, version();\" || echo 'Connection failed or timeout' && echo && echo '[Connection Test] RDS Proxy Reader' && export PGPASSWORD=password123 && timeout 30 psql -h pattern-a-rds-proxy-reader.endpoint.proxy-cpo0q8m8sxzx.ap-northeast-1.rds.amazonaws.com -U postgres -d testdb -c \"SELECT 'RDS Proxy Reader' as endpoint, current_user, inet_server_addr() as db_ip, version();\" || echo 'Connection failed or timeout' && echo && echo 'End time:' $(date) && echo '=== Test Complete ==='"
+      ],
+      "essential": true,
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/pattern-a-postgres-test",
+          "awslogs-region": "ap-northeast-1",
+          "awslogs-stream-prefix": "rds-proxy-test"
+        }
+      }
+    }
+  ]
+}
