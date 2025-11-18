@@ -86,31 +86,59 @@ resource "aws_vpc_endpoint" "s3" {
 }
 
 # VPC Lattice Resource Endpoint (for Aurora Resource Configuration)
-resource "aws_vpc_endpoint" "resource" {
+resource "aws_vpc_endpoint" "resource_aurora" {
   vpc_id                     = aws_vpc.main.id
-  resource_configuration_arn = "arn:aws:vpc-lattice:ap-northeast-1:000767026184:resourceconfiguration/rcfg-043b04bc49c571d1c"
+  resource_configuration_arn = "arn:aws:vpc-lattice:ap-northeast-1:000767026184:resourceconfiguration/rcfg-059d729fa2a6dabf2"
   vpc_endpoint_type          = "Resource"
   subnet_ids                 = [aws_subnet.private_a.id, aws_subnet.private_c.id]
   security_group_ids         = [aws_security_group.vpc_endpoints.id]
   private_dns_enabled        = true
 
   tags = {
-    Name = "rds-client-resource-endpoint"
+    Name = "rds-client-resource-endpoint-aurora"
+  }
+}
+
+# VPC Lattice Resource Endpoint (for RDS Proxy Resource Configuration)
+resource "aws_vpc_endpoint" "resource_rds_proxy" {
+  vpc_id                     = aws_vpc.main.id
+  resource_configuration_arn = "arn:aws:vpc-lattice:ap-northeast-1:000767026184:resourceconfiguration/rcfg-0e72a2deaf3ea0b99"
+  vpc_endpoint_type          = "Resource"
+  subnet_ids                 = [aws_subnet.private_a.id, aws_subnet.private_c.id]
+  security_group_ids         = [aws_security_group.vpc_endpoints.id]
+  private_dns_enabled        = true
+
+  tags = {
+    Name = "rds-client-resource-endpoint-rds-proxy"
+  }
+}
+
+# VPC Lattice Resource Endpoint (for RDS Proxy Reader Resource Configuration)
+resource "aws_vpc_endpoint" "resource_rds_proxy_reader" {
+  vpc_id                     = aws_vpc.main.id
+  resource_configuration_arn = "arn:aws:vpc-lattice:ap-northeast-1:000767026184:resourceconfiguration/rcfg-061957ba969a47556"
+  vpc_endpoint_type          = "Resource"
+  subnet_ids                 = [aws_subnet.private_a.id, aws_subnet.private_c.id]
+  security_group_ids         = [aws_security_group.vpc_endpoints.id]
+  private_dns_enabled        = true
+
+  tags = {
+    Name = "rds-client-resource-endpoint-rds-proxy-reader"
   }
 }
 
 # VPC Lattice Service Network Endpoint (併用テスト)
-resource "aws_vpc_endpoint" "service_network" {
-  vpc_id              = aws_vpc.main.id
-  service_network_arn = aws_vpclattice_service_network.main.arn
-  vpc_endpoint_type   = "ServiceNetwork"
-  subnet_ids          = [aws_subnet.private_a.id, aws_subnet.private_c.id]
-  security_group_ids  = [aws_security_group.vpc_endpoints.id]
-
-  tags = {
-    Name = "rds-client-service-network-endpoint"
-  }
-}
+# resource "aws_vpc_endpoint" "service_network" {
+#   vpc_id              = aws_vpc.main.id
+#   service_network_arn = aws_vpclattice_service_network.main.arn
+#   vpc_endpoint_type   = "ServiceNetwork"
+#   subnet_ids          = [aws_subnet.private_a.id, aws_subnet.private_c.id]
+#   security_group_ids  = [aws_security_group.vpc_endpoints.id]
+#
+#   tags = {
+#     Name = "rds-client-service-network-endpoint"
+#   }
+# }
 
 # Route Table for private subnets
 resource "aws_route_table" "private" {
