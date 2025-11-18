@@ -1,11 +1,11 @@
 # VPC Lattice Service Network
-# resource "aws_vpclattice_service_network" "main" {
-#   name = "rds-client-service-network"
-#
-#   tags = {
-#     Name = "rds-client-service-network"
-#   }
-# }
+resource "aws_vpclattice_service_network" "main" {
+  name = "rds-client-service-network"
+
+  tags = {
+    Name = "rds-client-service-network"
+  }
+}
 
 # Associate VPC with Service Network
 # resource "aws_vpclattice_service_network_vpc_association" "main" {
@@ -49,10 +49,10 @@
 # }
 
 # Outputs
-# output "service_network_id" {
-#   value = aws_vpclattice_service_network.main.id
-# }
-#
-# output "service_network_arn" {
-#   value = aws_vpclattice_service_network.main.arn
-# }
+output "service_network_id" {
+  value = aws_vpclattice_service_network.main.id
+}
+
+output "service_network_arn" {
+  value = aws_vpclattice_service_network.main.arn
+}

@@ -5,7 +5,7 @@ CLUSTER_NAME="rds-client-cluster"
 SUBNETS="subnet-099368fa8dc9ae0b0,subnet-0992567153552c401"
 SECURITY_GROUP="sg-0aa93435a2043117b"
 TASK_DEF="rds-proxy-test"
-VPC_LATTICE_DNS="snra-0317e603085554c2e.rcfg-0e72a2deaf3ea0b99.4232ccc.vpc-lattice-rsc.ap-northeast-1.on.aws"
+VPC_LATTICE_DNS="snra-0966d4bcf87691a90.rcfg-0e72a2deaf3ea0b99.4232ccc.vpc-lattice-rsc.ap-northeast-1.on.aws"
 
 echo "=== Testing RDS Proxy via VPC Lattice DNS Entry ==="
 echo ""

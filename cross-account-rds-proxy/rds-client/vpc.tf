@@ -128,17 +128,17 @@ resource "aws_vpc_endpoint" "resource_rds_proxy_reader" {
 }
 
 # VPC Lattice Service Network Endpoint (併用テスト)
-# resource "aws_vpc_endpoint" "service_network" {
-#   vpc_id              = aws_vpc.main.id
-#   service_network_arn = aws_vpclattice_service_network.main.arn
-#   vpc_endpoint_type   = "ServiceNetwork"
-#   subnet_ids          = [aws_subnet.private_a.id, aws_subnet.private_c.id]
-#   security_group_ids  = [aws_security_group.vpc_endpoints.id]
-#
-#   tags = {
-#     Name = "rds-client-service-network-endpoint"
-#   }
-# }
+resource "aws_vpc_endpoint" "service_network" {
+  vpc_id              = aws_vpc.main.id
+  service_network_arn = aws_vpclattice_service_network.main.arn
+  vpc_endpoint_type   = "ServiceNetwork"
+  subnet_ids          = [aws_subnet.private_a.id, aws_subnet.private_c.id]
+  security_group_ids  = [aws_security_group.vpc_endpoints.id]
+
+  tags = {
+    Name = "rds-client-service-network-endpoint"
+  }
+}
 
 # Route Table for private subnets
 resource "aws_route_table" "private" {
