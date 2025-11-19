@@ -23,7 +23,12 @@ output "service_network_arn" {
   value       = aws_vpclattice_service_network.main.arn
 }
 
-output "service_network_vpc_endpoint_id" {
-  description = "ID of the Service Network VPC Endpoint"
-  value       = aws_vpc_endpoint.service_network.id
+output "service_network_vpc_association_id" {
+  description = "ID of the Service Network VPC Association"
+  value       = aws_vpclattice_service_network_vpc_association.main.id
+}
+
+output "ecr_repository_url" {
+  description = "URL of the ECR repository"
+  value       = aws_ecr_repository.postgres_client.repository_url
 }

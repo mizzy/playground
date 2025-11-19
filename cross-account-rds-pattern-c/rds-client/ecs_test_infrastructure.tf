@@ -1,5 +1,15 @@
 # ECS Testing Infrastructure
 
+# ECR Repository for PostgreSQL client image
+resource "aws_ecr_repository" "postgres_client" {
+  name                 = "pattern-c-postgres-client"
+  image_tag_mutability = "MUTABLE"
+
+  tags = {
+    Name = "pattern-c-postgres-client"
+  }
+}
+
 # ECS Cluster
 resource "aws_ecs_cluster" "test" {
   name = "pattern-c-test-cluster"
@@ -122,7 +132,7 @@ resource "aws_ecs_task_definition" "postgres_test" {
   container_definitions = jsonencode([
     {
       name  = "postgres-client"
-      image = "postgres:15"
+      image = "${aws_ecr_repository.postgres_client.repository_url}:amd64"
       command = [
         "/bin/sh",
         "-c",

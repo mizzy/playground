@@ -12,18 +12,15 @@ resource "aws_vpclattice_service_network" "main" {
   }
 }
 
-# VPC Endpoint to connect to Service Network
-# NOTE: Using VPC Endpoint approach instead of VPC Association
-resource "aws_vpc_endpoint" "service_network" {
-  vpc_id              = aws_vpc.main.id
-  service_network_arn = aws_vpclattice_service_network.main.arn
-  vpc_endpoint_type   = "ServiceNetwork"
-  subnet_ids          = [aws_subnet.private_a.id, aws_subnet.private_c.id]
-  security_group_ids  = [aws_security_group.database.id]
-  private_dns_enabled = true
+# VPC Association to connect to Service Network
+# NOTE: Using VPC Association approach
+resource "aws_vpclattice_service_network_vpc_association" "main" {
+  vpc_identifier             = aws_vpc.main.id
+  service_network_identifier = aws_vpclattice_service_network.main.id
+  security_group_ids         = [aws_security_group.database.id]
 
   tags = {
-    Name = "pattern-c-service-network-vpce"
+    Name = "pattern-c-service-network-vpc-association"
   }
 }
 
