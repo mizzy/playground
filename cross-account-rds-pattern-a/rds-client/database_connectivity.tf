@@ -22,7 +22,7 @@ resource "aws_security_group" "database" {
 # NOTE: Update resource_configuration_arn after rds-proxy side is applied
 resource "aws_vpc_endpoint" "aurora" {
   vpc_id                     = aws_vpc.main.id
-  resource_configuration_arn = var.aurora_resource_config_arn
+  resource_configuration_arn = var.rds_cluster_resource_config_arn
   vpc_endpoint_type          = "Resource"
   subnet_ids                 = [aws_subnet.private_a.id, aws_subnet.private_c.id]
   security_group_ids         = [aws_security_group.database.id]
@@ -37,7 +37,7 @@ resource "aws_vpc_endpoint" "aurora" {
 # NOTE: Update resource_configuration_arn after rds-proxy side is applied
 resource "aws_vpc_endpoint" "rds_proxy_writer" {
   vpc_id                     = aws_vpc.main.id
-  resource_configuration_arn = var.rds_proxy_writer_resource_config_arn
+  resource_configuration_arn = var.rds_proxy_resource_config_arn
   vpc_endpoint_type          = "Resource"
   subnet_ids                 = [aws_subnet.private_a.id, aws_subnet.private_c.id]
   security_group_ids         = [aws_security_group.database.id]
