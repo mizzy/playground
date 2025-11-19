@@ -78,15 +78,15 @@ graph TB
 | リソース | 接続方法 | DNS名 | テスト結果 | データベースIP |
 |----------|----------|-------|-----------|--------------|
 | Aurora Cluster (Writer) | Resource Endpoint (ARN-based) | `pattern-a-aurora-cluster.cluster-cpo0q8m8sxzx.ap-northeast-1.rds.amazonaws.com` | ✅ **接続成功** | 10.1.2.96 |
-| Aurora Cluster (Reader) | Resource Endpoint (ARN-based) | `pattern-a-aurora-cluster.cluster-ro-cpo0q8m8sxzx.ap-northeast-1.rds.amazonaws.com` | 🔄 未テスト | - |
+| Aurora Cluster (Reader) | Resource Endpoint (ARN-based) | `pattern-a-aurora-cluster.cluster-ro-cpo0q8m8sxzx.ap-northeast-1.rds.amazonaws.com` | ✅ **接続成功** | 10.1.1.144 |
 | RDS Proxy Writer | Resource Endpoint (DNS-based) + PHZ | `pattern-a-rds-proxy.proxy-cpo0q8m8sxzx.ap-northeast-1.rds.amazonaws.com` | ✅ **接続成功** | 10.1.2.96 |
-| RDS Proxy Reader | Resource Endpoint (DNS-based) + PHZ | `pattern-a-rds-proxy-reader.endpoint.proxy-cpo0q8m8sxzx.ap-northeast-1.rds.amazonaws.com` | ⚠️ **RDS Proxy設定エラー** | N/A |
+| RDS Proxy Reader | Resource Endpoint (DNS-based) + PHZ | `pattern-a-rds-proxy-reader.endpoint.proxy-cpo0q8m8sxzx.ap-northeast-1.rds.amazonaws.com` | ✅ **接続成功** | 10.1.1.144 |
 
-### テスト実施日: 2025-11-18
+### テスト実施日: 2025-11-19
 
 **テスト詳細:**
 ```
-Test 1: Aurora Cluster (ARN-based)
+Test 1: Aurora Cluster Writer (ARN-based)
 - Endpoint: pattern-a-aurora-cluster.cluster-cpo0q8m8sxzx.ap-northeast-1.rds.amazonaws.com
 - User: postgres
 - DB Server IP: 10.1.2.96
@@ -94,7 +94,15 @@ Test 1: Aurora Cluster (ARN-based)
 - Private Hosted Zone: Auto-created by VPC Lattice
 - Status: ✅ SUCCESS
 
-Test 2: RDS Proxy Writer (DNS-based + Manual PHZ)
+Test 2: Aurora Cluster Reader (ARN-based)
+- Endpoint: pattern-a-aurora-cluster.cluster-ro-cpo0q8m8sxzx.ap-northeast-1.rds.amazonaws.com
+- User: postgres
+- DB Server IP: 10.1.1.144
+- PostgreSQL Version: 15.10 on x86_64-pc-linux-gnu
+- Private Hosted Zone: Auto-created by VPC Lattice
+- Status: ✅ SUCCESS
+
+Test 3: RDS Proxy Writer (DNS-based + Manual PHZ)
 - Endpoint: pattern-a-rds-proxy.proxy-cpo0q8m8sxzx.ap-northeast-1.rds.amazonaws.com
 - User: postgres
 - DB Server IP: 10.1.2.96
@@ -103,13 +111,14 @@ Test 2: RDS Proxy Writer (DNS-based + Manual PHZ)
 - Private Hosted Zone: Manually created with A records
 - Status: ✅ SUCCESS
 
-Test 3: RDS Proxy Reader (DNS-based + Manual PHZ)
+Test 4: RDS Proxy Reader (DNS-based + Manual PHZ)
 - Endpoint: pattern-a-rds-proxy-reader.endpoint.proxy-cpo0q8m8sxzx.ap-northeast-1.rds.amazonaws.com
+- User: postgres
+- DB Server IP: 10.1.1.144
+- PostgreSQL Version: 15.10 on x86_64-pc-linux-gnu
 - DNS Resolution: 10.0.1.125, 10.0.2.86 (Resource Endpoint IPs)
 - Private Hosted Zone: Manually created with A records
-- Status: ⚠️ RDS Proxy configuration issue
-- Error: "Target group doesnt have any associated read-only instances"
-- Note: Aurora cluster needs read replicas for reader endpoint
+- Status: ✅ SUCCESS
 ```
 
 ## 重要なポイント
@@ -190,9 +199,10 @@ aws-vault exec rds-client -- aws ec2 describe-vpc-endpoints \
 - **影響範囲**: DNSキャッシュ（TTL 60秒）があるため、即座に全体に影響するわけではありません
 - **検知可能性**: Terraformで管理しているため、完全に「見えない」変更ではありません
 
-#### Reader Endpoint の制限
-- RDS Proxy Reader endpointは、Aurora clusterにread replicasが存在する場合のみ機能
-- Read replicasがない場合、"Target group doesnt have any associated read-only instances" エラーが発生
+#### Reader Endpoint の要件
+- RDS Proxy Reader endpointは、Aurora clusterにread replicasが存在する場合のみ機能します
+- 現在の構成では、Aurora clusterにread replicaが設定されており、Reader endpointが正常に動作しています
+- Read replicasがない場合、"Target group doesnt have any associated read-only instances" エラーが発生します
 
 ## デプロイ手順
 
@@ -232,11 +242,14 @@ make ecs-register
 #### オプション1: Makefileを使用した自動テスト
 
 ```bash
-# テスト環境のセットアップ（イメージビルド、タスク定義登録、タスク起動）
-make setup
-
-# 全ての接続テストを実行
+# 全ての接続テストを実行（Aurora Cluster、Aurora Reader、RDS Proxy Writer、RDS Proxy Reader）
 make test-all
+
+# 個別のテストを実行
+make test-aurora           # Aurora Cluster (Writer) endpoint
+make test-aurora-reader    # Aurora Cluster (Reader) endpoint
+make test-proxy-writer     # RDS Proxy Writer endpoint
+make test-proxy-reader     # RDS Proxy Reader endpoint
 ```
 
 #### オプション2: CloudWatch Logsで結果を確認する方法
