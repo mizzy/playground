@@ -56,8 +56,8 @@ graph TB
             RC_Aurora["Aurora RC<br/>rcfg-08e1a8d1a3efa6a53<br/>(ARN Type)"]
             RC_Aurora_Writer["Aurora Writer Child RC<br/>rcfg-0163a0e6fcb9eb1f7<br/>(CHILD Type)"]
             RC_Aurora_Reader["Aurora Reader Child RC<br/>rcfg-092a6e19eb1ded941<br/>(CHILD Type)"]
-            RC_Proxy_Writer["RDS Proxy Writer RC<br/>rcfg-0c7d315913a607ec8<br/>(SINGLE Type)"]
-            RC_Proxy_Reader["RDS Proxy Reader RC<br/>rcfg-0cbd0d535853a7bf6<br/>(SINGLE Type)"]
+            RC_Proxy_Writer["RDS Proxy Writer RC<br/>rcfg-0824c6814b9373689<br/>(SINGLE Type)"]
+            RC_Proxy_Reader["RDS Proxy Reader RC<br/>rcfg-0045a2f984e67c28e<br/>(SINGLE Type)"]
         end
 
         Aurora --> AuroraWriter
@@ -88,9 +88,9 @@ graph TB
             SNVPCE["ServiceNetwork VPC Endpoint<br/>vpce-011a293f4ab94273c<br/>private_dns_enabled=true"]
 
             subgraph Associations["Service Network Resource Associations"]
-                SNRA_Aurora["Aurora Association<br/>snra-0a698b88fa3f0fe19"]
-                SNRA_Writer["RDS Proxy Writer Association<br/>snra-0229aff74bb448e6b"]
-                SNRA_Reader["RDS Proxy Reader Association<br/>snra-0544cdb1809be9bd7"]
+                SNRA_Aurora["Aurora Association<br/>snra-0f8aaa114bda3641d"]
+                SNRA_Writer["RDS Proxy Writer Association<br/>snra-0d19a30c5128a9982"]
+                SNRA_Reader["RDS Proxy Reader Association<br/>snra-07b66972b0e51b9ea"]
             end
 
             ECS["ECS Fargate Tasks<br/>(PostgreSQL Client)"]
@@ -138,73 +138,82 @@ graph TB
 
 ## DNS 名前解決の仕組み
 
-Pattern B では、ServiceNetwork VPC Endpoint の `private_dns_enabled = true` により、以下のように DNS 名前解決が行われます:
+Pattern B では、ServiceNetwork VPC Endpoint の `private_dns_enabled = true` により、**ARN-based Resource Configuration (Aurora) のみ** DNS 名前解決が行われます:
 
-1. **ECS タスクが DNS クエリを発行** (例: `pattern-b-rds-proxy.proxy-cpo0q8m8sxzx.ap-northeast-1.rds.amazonaws.com`)
+### Aurora (ARN-based) の場合
+
+1. **ECS タスクが DNS クエリを発行** (例: `pattern-b-aurora-cluster.cluster-cpo0q8m8sxzx.ap-northeast-1.rds.amazonaws.com`)
 2. **VPC DNS Resolver** (10.0.0.2) が ServiceNetwork VPC Endpoint にクエリを転送
-3. **ServiceNetwork VPC Endpoint** が Resource Configuration の `dnsResource.domainName` または `customDomainName` とマッチング
+3. **ServiceNetwork VPC Endpoint** が CHILD Resource Configuration の `customDomainName` とマッチング
 4. **Service Network Resource Association** を通じて適切な Resource Configuration を特定
 5. **VPC Lattice** が Resource Gateway 経由でトラフィックをルーティング
-6. **Resource Gateway** が rds-proxy アカウントの実際のエンドポイントに接続
+6. **Resource Gateway** が rds-proxy アカウントの実際のAuroraエンドポイントに接続
 
 ### Resource Configuration と Custom Domain Name
-
-**RDS Proxy (SINGLE タイプ):**
-- Terraform で `dns_resource.domain_name` のみ指定
-- `customDomainName: null` (API レスポンス)
-- 実際の DNS 名前解決では `dnsResource.domainName` が使用される
 
 **Aurora (ARN タイプ + CHILD タイプ):**
 - 親 RC (ARN タイプ): Aurora クラスター ARN を指定
 - AWS が自動的に CHILD タイプの RC を生成
 - CHILD RC には `customDomainName` が自動設定される (例: `pattern-b-aurora-cluster.cluster-cpo0q8m8sxzx.ap-northeast-1.rds.amazonaws.com`)
+- `private_dns_enabled = true` により、Consumer VPC内でAuroraの元のDNS名で接続可能
+
+**RDS Proxy (DNS-based SINGLE タイプ) - ⚠️ Private DNS 非対応:**
+- Terraform で `dns_resource.domain_name` のみ指定
+- `customDomainName` を設定しても Private DNS は動作しない
+- VPC Lattice 自動生成DNS名 (`snra-*.rcfg-*.vpc-lattice-rsc.ap-northeast-1.on.aws`) も Consumer VPC 内で解決されない
+- **接続するには VPC Lattice 自動生成DNS名を使用する必要がある** (Private Hosted Zoneでの手動設定も不可)
 
 ## 接続性マトリクス
 
-| リソース | 接続方法 | DNS名 | テスト結果 | 備考 |
-|----------|----------|-------|-----------|------|
-| Aurora Cluster (Writer) | Service Network | `pattern-b-aurora-cluster.cluster-cpo0q8m8sxzx.ap-northeast-1.rds.amazonaws.com` | ✅ **接続成功** | CHILD RC の customDomainName で解決 |
-| Aurora Cluster (Reader) | Service Network | `pattern-b-aurora-cluster.cluster-ro-cpo0q8m8sxzx.ap-northeast-1.rds.amazonaws.com` | ✅ **接続成功** | CHILD RC の customDomainName で解決 |
-| RDS Proxy Writer | Service Network | `pattern-b-rds-proxy.proxy-cpo0q8m8sxzx.ap-northeast-1.rds.amazonaws.com` | ✅ **接続成功** | dnsResource.domainName で解決 |
-| RDS Proxy Reader | Service Network | `pattern-b-rds-proxy-reader.endpoint.proxy-cpo0q8m8sxzx.ap-northeast-1.rds.amazonaws.com` | ✅ **接続成功** | dnsResource.domainName で解決 |
+| リソース | 接続方法 | DNS名 | Private DNS対応 | 備考 |
+|----------|----------|-------|----------------|------|
+| Aurora Cluster (Writer) | Service Network | `pattern-b-aurora-cluster.cluster-cpo0q8m8sxzx.ap-northeast-1.rds.amazonaws.com` | ✅ **対応** | CHILD RC の customDomainName で自動解決 |
+| Aurora Cluster (Reader) | Service Network | `pattern-b-aurora-cluster.cluster-ro-cpo0q8m8sxzx.ap-northeast-1.rds.amazonaws.com` | ✅ **対応** | CHILD RC の customDomainName で自動解決 |
+| RDS Proxy Writer | Service Network | VPC Lattice DNS名のみ | ❌ **非対応** | 元のRDS Proxy DNS名では接続不可 |
+| RDS Proxy Reader | Service Network | VPC Lattice DNS名のみ | ❌ **非対応** | 元のRDS Proxy DNS名では接続不可 |
 
-### テスト実施日: 2025-11-19
+### Private DNS 検証結果（2025-11-20）
 
-**テスト詳細:**
-```
-=== VPC Lattice Pattern B - Database Connection Test ===
-Start time: 2025-11-19 ...
+**Aurora (ARN-based Resource Configuration):**
+- ✅ 元のAurora DNS名で接続可能
+- ✅ `private_dns_enabled=true` が正常に動作
+- ✅ AWS自動生成のCHILD RCによりPrivate DNS対応
 
-[DNS Test] Aurora Writer endpoint
-pattern-b-aurora-cluster.cluster-cpo0q8m8sxzx.ap-northeast-1.rds.amazonaws.com
-✅ DNS lookup successful
+**RDS Proxy (DNS-based Resource Configuration):**
+- ❌ 元のRDS Proxy DNS名では接続不可（`pattern-b-rds-proxy.proxy-*.rds.amazonaws.com`）
+- ❌ `custom_domain_name` を設定してもPrivate DNS非対応
+- ❌ VPC Lattice自動生成DNS名（`snra-*.rcfg-*.vpc-lattice-rsc.ap-northeast-1.on.aws`）もConsumer VPC内で解決されない
+- ❌ Private Hosted Zoneでの手動CNAME設定も不可（Service Network VPC Endpointが1つのためルーティング情報不足）
 
-[DNS Test] Aurora Reader endpoint
-pattern-b-aurora-cluster.cluster-ro-cpo0q8m8sxzx.ap-northeast-1.rds.amazonaws.com
-✅ DNS lookup successful
+**検証内容:**
+```bash
+# Aurora Writer - 成功
+$ psql -h pattern-b-aurora-cluster.cluster-cpo0q8m8sxzx.ap-northeast-1.rds.amazonaws.com -U postgres -d testdb
+ current_user | inet_server_addr | version
+--------------+------------------+--------------------------------------------------------------------------------------------------
+ postgres     | 10.1.2.149       | PostgreSQL 15.10 on x86_64-pc-linux-gnu, compiled by x86_64-pc-linux-gnu-gcc (GCC) 9.5.0, 64-bit
 
-[DNS Test] RDS Proxy Writer endpoint
-pattern-b-rds-proxy.proxy-cpo0q8m8sxzx.ap-northeast-1.rds.amazonaws.com
-✅ DNS lookup successful
+# Aurora Reader - 成功
+$ psql -h pattern-b-aurora-cluster.cluster-ro-cpo0q8m8sxzx.ap-northeast-1.rds.amazonaws.com -U postgres -d testdb
+ current_user | inet_server_addr | pg_is_in_recovery
+--------------+------------------+-------------------
+ postgres     | 10.1.1.184       | t
 
-[DNS Test] RDS Proxy Reader endpoint
-pattern-b-rds-proxy-reader.endpoint.proxy-cpo0q8m8sxzx.ap-northeast-1.rds.amazonaws.com
-✅ DNS lookup successful
+# RDS Proxy Writer - DNS解決はするが接続タイムアウト
+$ getent hosts pattern-b-rds-proxy.proxy-cpo0q8m8sxzx.ap-northeast-1.rds.amazonaws.com
+10.1.1.137      vpce-06bb0d5d04f143cd0-pvlabyto.vpce-svc-0dd2951ed3fa88bfe.ap-northeast-1.vpce.amazonaws.com pattern-b-rds-proxy.proxy-cpo0q8m8sxzx.ap-northeast-1.rds.amazonaws.com
+10.1.2.203      vpce-06bb0d5d04f143cd0-pvlabyto.vpce-svc-0dd2951ed3fa88bfe.ap-northeast-1.vpce.amazonaws.com pattern-b-rds-proxy.proxy-cpo0q8m8sxzx.ap-northeast-1.rds.amazonaws.com
+# 注: 10.1.1.137, 10.1.2.203 = Provider VPCのRDS Proxy VPC Endpoint (vpce-06bb0d5d04f143cd0) のIP
+#     Resource Gateway VPC Endpoint (10.1.1.100, 10.1.2.67) とは別物
+#     RDS ProxyはResource Gatewayを経由せず、独自のVPC Endpointを使用
 
-[Connection Test] Aurora Writer
-✅ Connection successful
-endpoint      | current_user | db_ip      | version
---------------+--------------+------------+---------------------------
-Aurora Writer | postgres     | 10.1.x.x   | PostgreSQL 15.10 ...
+$ psql -h pattern-b-rds-proxy.proxy-cpo0q8m8sxzx.ap-northeast-1.rds.amazonaws.com -U postgres -d testdb
+Connection timed out
+# Consumer VPC (10.0.0.0/16) からProvider VPC (10.1.0.0/16) のIPには到達不可
 
-[Connection Test] Aurora Reader
-✅ Connection successful
-
-[Connection Test] RDS Proxy Writer
-✅ Connection successful
-
-[Connection Test] RDS Proxy Reader
-✅ Connection successful
+# VPC Lattice DNS名の解決テスト - 失敗
+$ getent hosts snra-0d19a30c5128a9982.rcfg-0824c6814b9373689.4232ccc.vpc-lattice-rsc.ap-northeast-1.on.aws
+DNS Resolution Failed
 ```
 
 ## デプロイ手順
@@ -285,9 +294,21 @@ resource_configuration_identifier: was cty.StringVal("arn:aws:..."), but now cty
 1. リソースを state から削除: `terraform state rm aws_vpclattice_service_network_resource_association.xxx`
 2. 既存の Association を import: `terraform import aws_vpclattice_service_network_resource_association.xxx snra-xxx`
 
-#### Private DNS の自動設定
+#### Private DNS の制限事項
 
-ServiceNetwork VPC Endpoint に `private_dns_enabled = true` を設定することで、Service Network に関連付けられた全ての Resource Configuration の DNS 名が自動的に解決されます。Pattern A のように個別の Private Hosted Zone を作成する必要はありません。
+ServiceNetwork VPC Endpoint に `private_dns_enabled = true` を設定した場合の動作：
+
+**✅ ARN-based Resource Configuration (Aurora) の場合:**
+- AWS自動生成のCHILD Resource Configurationに`customDomainName`が設定される
+- Consumer VPC内で元のAurora DNS名が自動的に解決される
+- Pattern Aのように個別のPrivate Hosted Zoneを作成する必要がない
+
+**❌ DNS-based Resource Configuration (RDS Proxy) の場合:**
+- `custom_domain_name`を手動設定してもPrivate DNSは動作しない
+- Consumer VPC内で元のRDS Proxy DNS名は解決されない
+- VPC Lattice自動生成DNS名(`snra-*.rcfg-*.vpc-lattice-rsc.ap-northeast-1.on.aws`)も解決されない
+- Private Hosted Zoneでの手動CNAME設定も無効（Service Network VPC Endpointのルーティング制約）
+- **Pattern A (Resource VPC Endpoint + Private Hosted Zone) の利用を推奨**
 
 ## トラブルシューティング
 
@@ -351,32 +372,31 @@ aws-vault exec rds-proxy -- terraform destroy
 
 ### 検証結果サマリー
 
-1. ✅ **Service Network + ServiceNetwork VPC Endpoint**: 完全に動作
-   - 1つの VPC Endpoint で複数の Resource Configuration に接続可能
-   - Private DNS が自動的に全エンドポイントを解決
-   - Pattern A よりも管理が簡素化される
-
-2. ✅ **Aurora Cluster (ARN-based)**: 正常に動作
+1. ✅ **Aurora Cluster (ARN-based Resource Configuration)**: Private DNS完全対応
    - AWS が自動的に CHILD タイプの Resource Configuration を生成
    - `customDomainName` が自動設定される
+   - `private_dns_enabled=true` により元のAurora DNS名で接続可能
    - Writer/Reader 両方のエンドポイントが利用可能
 
-3. ✅ **RDS Proxy (DNS-based)**: 正常に動作
-   - `dnsResource.domainName` による DNS 名前解決
-   - Writer/Reader 両方のエンドポイントが利用可能
+2. ❌ **RDS Proxy (DNS-based Resource Configuration)**: Private DNS非対応
+   - `customDomainName` を設定してもPrivate DNS機能は動作しない
+   - 元のRDS Proxy DNS名では接続不可
+   - VPC Lattice自動生成DNS名もConsumer VPC内で解決されない
+   - Private Hosted Zoneでの手動設定も不可（Service Network VPC Endpoint経由のルーティング制約）
 
 ### Pattern B の利点
 
 1. **スケーラビリティ**: Resource Configuration を追加する場合、Service Network Resource Association を追加するだけ
 2. **コスト最適化**: VPC Endpoint 1個の料金（Pattern A は複数個）
 3. **管理の簡素化**: VPC Endpoint を個別に管理する必要がない
-4. **一元管理**: Service Network で全ての Resource Configuration を管理
+4. **Aurora向け最適**: ARN-based Resource ConfigurationでPrivate DNS完全対応
 
 ### Pattern B の制約
 
-1. **Terraform Provider バグ**: Resource Configuration Association の ARN/ID 不整合問題
-2. **Import が必要**: 既存の Association がある場合は import が必要
-3. **Service Network の追加コスト**: Service Network 自体に料金が発生する可能性
+1. **Private DNS制限**: DNS-based Resource Configuration（RDS Proxy等）ではPrivate DNS非対応
+2. **Terraform Provider バグ**: Resource Configuration Association の ARN/ID 不整合問題
+3. **Import が必要**: 既存の Association がある場合は import が必要
+4. **RDS Proxy利用不可**: 元のDNS名で接続できないため、アプリケーション変更が必要
 
 ### 今後の検討事項
 
