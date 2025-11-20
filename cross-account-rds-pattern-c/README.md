@@ -171,11 +171,51 @@ VPC Lattice が生成する DNS 名は以下の形式です:
 snra-{association-id}.rcfg-{resource-config-id}.{hash}.vpc-lattice-rsc.{region}.on.aws
 ```
 
-**実際の例**:
-- RDS Proxy Writer: `snra-05c8959f3dedd93ed.rcfg-0c830603dadd13ccf.4232ccc.vpc-lattice-rsc.ap-northeast-1.on.aws`
-- RDS Proxy Reader: `snra-0729f435aaa8c3406.rcfg-04ed74564b8ec0549.4232ccc.vpc-lattice-rsc.ap-northeast-1.on.aws`
-- Aurora Writer: `snra-0b6b6dcea84dba545.rcfg-0d4aa8b99e08b7504.4232ccc.vpc-lattice-rsc.ap-northeast-1.on.aws`
-- Aurora Reader: `snra-0249a74b7605c3f1d.rcfg-0c1ffd34e25449792.4232ccc.vpc-lattice-rsc.ap-northeast-1.on.aws`
+**実際の例と解決されるIPアドレス**:
+
+| リソース | VPC Lattice DNS名 | IPv4アドレス | IPv6アドレス |
+|---------|-------------------|--------------|--------------|
+| RDS Proxy Writer | `snra-05c8959f3dedd93ed.rcfg-0c830603dadd13ccf.4232ccc.vpc-lattice-rsc.ap-northeast-1.on.aws` | `129.224.52.10` | `fd00:ec2:80:0:8000:0:81e0:3402` |
+| RDS Proxy Reader | `snra-0729f435aaa8c3406.rcfg-04ed74564b8ec0549.4232ccc.vpc-lattice-rsc.ap-northeast-1.on.aws` | `129.224.52.1` | `fd00:ec2:80:0:8000:0:81e0:3401` |
+| Aurora Writer | `snra-0249a74b7605c3f1d.rcfg-0c1ffd34e25449792.4232ccc.vpc-lattice-rsc.ap-northeast-1.on.aws` | `129.224.52.100` | `fd00:ec2:80:0:8000:0:81e0:3403` |
+| Aurora Reader | `snra-0b6b6dcea84dba545.rcfg-0d4aa8b99e08b7504.4232ccc.vpc-lattice-rsc.ap-northeast-1.on.aws` | `129.224.52.101` | `fd00:ec2:80:0:8000:0:81e0:3404` |
+
+**IPアドレスの特徴**:
+- **129.224.0.0/16**: AWS VPC Latticeの専用IPレンジ（Consumer VPC内でルーティング可能）
+- **fd00::/8**: IPv6ローカルユニキャストアドレス（VPC内部用）
+- **各Resource Configurationに固有のIPアドレス**が割り当てられる
+- **すべてConsumer VPC内で解決可能**（Service Network VPC Association経由）
+
+**Private Hosted Zoneでの標準DNS名使用**:
+VPC Lattice DNS名が固有のIPアドレスに解決されるため、Private Hosted Zoneを手動作成し、元のRDS Proxy DNS名（`pattern-c-rds-proxy.proxy-*.rds.amazonaws.com`）をVPC Lattice DNS名にCNAMEマッピングすることで、標準DNS名での接続が可能です。
+
+**検証結果（2025-11-20）**:
+```bash
+# Private Hosted Zone設定
+# pattern-c-rds-proxy.proxy-*.rds.amazonaws.com → snra-05c8959f3dedd93ed...（CNAME）
+# pattern-c-rds-proxy-reader.endpoint.proxy-*.rds.amazonaws.com → snra-0729f435aaa8c3406...（CNAME）
+
+# RDS Proxy Writer - 元のDNS名でDNS解決
+$ getent ahosts pattern-c-rds-proxy.proxy-cpo0q8m8sxzx.ap-northeast-1.rds.amazonaws.com
+129.224.52.10   STREAM snra-05c8959f3dedd93ed.rcfg-0c830603dadd13ccf...
+# ✅ VPC Lattice IPアドレスに解決
+
+# RDS Proxy Writer - 元のDNS名で接続
+$ psql -h pattern-c-rds-proxy.proxy-cpo0q8m8sxzx.ap-northeast-1.rds.amazonaws.com -U postgres -d testdb
+ current_user | inet_server_addr
+--------------+------------------
+ postgres     | 10.1.2.123
+# ✅ 接続成功
+
+# RDS Proxy Reader - 元のDNS名で接続
+$ psql -h pattern-c-rds-proxy-reader.endpoint.proxy-cpo0q8m8sxzx.ap-northeast-1.rds.amazonaws.com -U postgres -d testdb
+ current_user | inet_server_addr | pg_is_in_recovery
+--------------+------------------+-------------------
+ postgres     | 10.1.1.6         | t
+# ✅ 接続成功（Read-only確認）
+```
+
+この結果、**パターンCでもPrivate Hosted ZoneによりPattern Bと同等の使い勝手を実現**できることが確認されました。
 
 ### Resource Configuration のタイプ別動作
 
