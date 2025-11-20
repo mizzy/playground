@@ -535,9 +535,21 @@ $ aws route53 list-hosted-zones-by-vpc --vpc-id vpc-xxx --vpc-region ap-northeas
 
 ### Terraform対応状況
 
-**現状**: AWS Provider 6.21.0時点では`custom-domain-name`パラメータ未サポート
+**カスタムドメイン機能には3つのコンポーネントが必要ですが、Terraform AWS Providerの対応状況は以下の通りです:**
 
-**回避策**: AWS CLIで手動作成後、Terraformで管理外とするか、Provider更新を待つ
+| コンポーネント | パラメータ | 対応状況 | PR/バージョン | 備考 |
+|--------------|-----------|---------|-------------|-----|
+| Resource Configuration | `custom_domain_name` | ✅ mainブランチのみ | [PR #45085](https://github.com/hashicorp/terraform-provider-aws/pull/45085) (2025-11-17マージ) | v6.22.0以降でリリース予定 |
+| Service Network Resource Association | `private_dns_enabled` | ❌ 未実装 | - | PR未作成 |
+| VPC Endpoint | `dns_options.PrivateDnsPreference` | ❌ 未実装 | - | PR未作成 |
+
+**結論**: 現時点（v6.21.0）では**Terraformでの完全なカスタムドメイン機能実装は不可能**です。
+
+**回避策**: AWS CLIで手動作成（上記「設定方法」参照）し、Terraformでは管理外とする
+
+**今後の見通し**:
+- `custom_domain_name`は次回リリース（v6.22.0予定）で利用可能
+- `private_dns_enabled`と`PrivateDnsPreference`は実装予定不明（PRが作成されていない）
 
 ### 利点
 
