@@ -378,11 +378,12 @@ aws-vault exec rds-proxy -- terraform destroy
    - `private_dns_enabled=true` により元のAurora DNS名で接続可能
    - Writer/Reader 両方のエンドポイントが利用可能
 
-2. ❌ **RDS Proxy (DNS-based Resource Configuration)**: Private DNS非対応
-   - `customDomainName` を設定してもPrivate DNS機能は動作しない
-   - 元のRDS Proxy DNS名では接続不可
-   - VPC Lattice自動生成DNS名もConsumer VPC内で解決されない
-   - Private Hosted Zoneでの手動設定も不可（Service Network VPC Endpoint経由のルーティング制約）
+2. ✅ **RDS Proxy (DNS-based Resource Configuration)**: カスタムドメイン名機能で対応可能（2025年11月新機能）
+   - Resource Configurationに`custom-domain-name`を設定
+   - Service Network Resource Associationで`private-dns-enabled`を有効化
+   - VPC Endpointで`PrivateDnsPreference=ALL_DOMAINS`を設定
+   - → VPC Latticeが自動的にPrivate Hosted Zoneを作成
+   - → 元のRDS Proxy DNS名で接続可能
 
 ### Pattern B の利点
 
@@ -403,3 +404,138 @@ aws-vault exec rds-proxy -- terraform destroy
 1. **パフォーマンス比較**: Pattern A との性能比較
 2. **コスト比較**: VPC Endpoint 複数 vs Service Network + VPC Endpoint 1個
 3. **マルチアカウント展開**: 複数の Consumer Account での利用パターン
+
+## VPC Lattice カスタムドメイン名機能（2025年11月新機能）
+
+### 概要
+
+2025年11月に発表された新機能により、Resource Configurationに`custom-domain-name`を設定することで、元のAWS提供DNS名（例: `*.rds.amazonaws.com`）でリソースにアクセスできるようになりました。
+
+**参考**: [Custom domain names for VPC Lattice resources](https://aws.amazon.com/jp/blogs/networking-and-content-delivery/custom-domain-names-for-vpc-lattice-resources/)
+
+### 設定方法
+
+#### 1. Resource Configurationにカスタムドメイン名を設定
+
+```bash
+aws vpc-lattice create-resource-configuration \
+  --name pattern-b-rds-proxy-custom-domain \
+  --type SINGLE \
+  --resource-gateway-identifier rgw-xxx \
+  --resource-configuration-definition '{
+    "dnsResource": {
+      "domainName": "pattern-b-rds-proxy.proxy-cpo0q8m8sxzx.ap-northeast-1.rds.amazonaws.com",
+      "ipAddressType": "IPV4"
+    }
+  }' \
+  --custom-domain-name "pattern-b-rds-proxy.proxy-cpo0q8m8sxzx.ap-northeast-1.rds.amazonaws.com" \
+  --port-ranges 5432 \
+  --protocol TCP
+```
+
+#### 2. Service Network Resource Associationで Private DNS を有効化
+
+```bash
+aws vpc-lattice create-service-network-resource-association \
+  --resource-configuration-identifier rcfg-xxx \
+  --service-network-identifier sn-xxx \
+  --private-dns-enabled
+```
+
+#### 3. VPC Endpointで Private DNS Preference を設定
+
+```bash
+aws ec2 create-vpc-endpoint \
+  --vpc-id vpc-xxx \
+  --service-network-arn arn:aws:vpc-lattice:... \
+  --vpc-endpoint-type ServiceNetwork \
+  --subnet-ids subnet-xxx subnet-yyy \
+  --security-group-ids sg-xxx \
+  --private-dns-enabled \
+  --dns-options '{"PrivateDnsPreference": "ALL_DOMAINS"}'
+```
+
+### Private DNS Preference オプション
+
+- `ALL_DOMAINS`: すべてのカスタムドメイン名に対してPrivate Hosted Zoneを作成
+- `VERIFIED_DOMAINS_ONLY`: 検証済みドメインのみ（デフォルト）
+- `VERIFIED_DOMAINS_AND_SPECIFIED_DOMAINS`: 検証済み + 指定ドメイン
+- `SPECIFIED_DOMAINS_ONLY`: 指定ドメインのみ
+
+### 動作の仕組み
+
+1. **VPC Latticeが自動的にPrivate Hosted Zoneを作成**
+   - Consumer VPCに関連付けられる
+   - `Owner.OwningService: "vpc-lattice.amazonaws.com"`で管理される
+
+2. **DNS名前解決**
+   - ECSタスクが`pattern-b-rds-proxy.proxy-*.rds.amazonaws.com`をクエリ
+   - VPC LatticeのDNSリゾルバーが応答
+   - VPC Lattice管理のIPアドレス（10.0.x.x）に解決
+
+3. **接続確立**
+   - VPC Lattice経由でResource Gatewayにルーティング
+   - Provider VPCのRDS Proxyに接続
+
+### 検証結果（2025-11-20）
+
+**RDS Proxy Writer Endpoint:**
+```bash
+# DNS解決テスト
+$ getent ahosts pattern-b-rds-proxy.proxy-cpo0q8m8sxzx.ap-northeast-1.rds.amazonaws.com
+10.0.1.173      STREAM pattern-b-rds-proxy.proxy-cpo0q8m8sxzx.ap-northeast-1.rds.amazonaws.com
+# ✅ VPC Lattice管理のIPアドレスに解決
+
+# 接続テスト
+$ psql -h pattern-b-rds-proxy.proxy-cpo0q8m8sxzx.ap-northeast-1.rds.amazonaws.com -U postgres -d testdb
+ current_user | inet_server_addr | version
+--------------+------------------+--------------------------------------------------------------------------------------------------
+ postgres     | 10.1.2.149       | PostgreSQL 15.10 on x86_64-pc-linux-gnu, compiled by x86_64-pc-linux-gnu-gcc (GCC) 9.5.0, 64-bit
+# ✅ 接続成功（10.1.2.149 = Provider VPCのRDS Proxy）
+```
+
+**RDS Proxy Reader Endpoint:**
+```bash
+# DNS解決テスト
+$ getent ahosts pattern-b-rds-proxy-reader.endpoint.proxy-cpo0q8m8sxzx.ap-northeast-1.rds.amazonaws.com
+10.0.1.162      STREAM pattern-b-rds-proxy-reader.endpoint.proxy-cpo0q8m8sxzx.ap-northeast-1.rds.amazonaws.com
+# ✅ VPC Lattice管理のIPアドレスに解決
+
+# 接続テスト
+$ psql -h pattern-b-rds-proxy-reader.endpoint.proxy-cpo0q8m8sxzx.ap-northeast-1.rds.amazonaws.com -U postgres -d testdb
+ current_user | inet_server_addr | pg_is_in_recovery
+--------------+------------------+-------------------
+ postgres     | 10.1.1.184       | t
+# ✅ 接続成功（10.1.1.184 = Provider VPCのAurora Reader、Read-only確認）
+```
+
+### VPC Lattice管理のPrivate Hosted Zone確認
+
+```bash
+$ aws route53 list-hosted-zones-by-vpc --vpc-id vpc-xxx --vpc-region ap-northeast-1
+{
+  "HostedZoneSummaries": [
+    {
+      "HostedZoneId": "Z07741592ROYY7YXPIC5D",
+      "Name": "pattern-b-rds-proxy.proxy-cpo0q8m8sxzx.ap-northeast-1.rds.amazonaws.com.",
+      "Owner": {
+        "OwningService": "vpc-lattice.amazonaws.com"
+      }
+    }
+  ]
+}
+# ✅ VPC Latticeが自動作成したPrivate Hosted Zone
+```
+
+### Terraform対応状況
+
+**現状**: AWS Provider 6.21.0時点では`custom-domain-name`パラメータ未サポート
+
+**回避策**: AWS CLIで手動作成後、Terraformで管理外とするか、Provider更新を待つ
+
+### 利点
+
+1. **手動設定不要**: Private Hosted Zoneの手動作成が不要
+2. **AWS提供ドメイン対応**: `*.rds.amazonaws.com`のようなAWS提供ドメインでも使用可能
+3. **Domain Verification不要**: 未検証ドメインとして扱われるが、`ALL_DOMAINS`設定で利用可能
+4. **アプリケーション変更不要**: 元のDNS名をそのまま使用可能
