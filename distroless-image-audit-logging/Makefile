@@ -1,10 +1,12 @@
-.PHONY: build push login verify-arch all clean
+.PHONY: build build-with-audit push login verify-arch all all-with-audit clean
 
 # Variables
 AWS_REGION := ap-northeast-1
 ECR_REPO := distroless-audit
 IMAGE_TAG := latest
-BASE_IMAGE := gcr.io/distroless/base-debian12:debug-nonroot
+
+# Docker build target: "base" (default) or "with-audit"
+BUILD_TARGET ?= base
 
 # Get AWS account ID and ECR URL
 AWS_ACCOUNT_ID := $(shell aws sts get-caller-identity --query Account --output text)
@@ -18,8 +20,12 @@ login:
 # Build for amd64 architecture (required for Fargate)
 # Uses docker buildx to ensure correct architecture on M1/M2 Macs
 build:
-	@echo "amd64 アーキテクチャ用のイメージをビルド中..."
-	docker buildx build --platform linux/amd64 -t $(ECR_URL):$(IMAGE_TAG) --load .
+	@echo "amd64 アーキテクチャ用のイメージをビルド中... (target=$(BUILD_TARGET))"
+	docker buildx build --platform linux/amd64 --target $(BUILD_TARGET) -t $(ECR_URL):$(IMAGE_TAG) --load .
+
+# Build with audit logging enabled
+build-with-audit:
+	@$(MAKE) build BUILD_TARGET=with-audit
 
 # Verify the image architecture before pushing
 verify-arch:
@@ -41,6 +47,10 @@ push: verify-arch
 # All-in-one: login, build, and push
 all: login build push
 	@echo "すべてのステップが完了しました"
+
+# All-in-one with audit logging enabled
+all-with-audit:
+	@$(MAKE) all BUILD_TARGET=with-audit
 
 # Clean up local images
 clean:
