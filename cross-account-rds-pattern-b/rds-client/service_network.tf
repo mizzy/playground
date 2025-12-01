@@ -29,8 +29,10 @@ resource "aws_vpc_endpoint" "service_network" {
 
 # Associate Service Network with Aurora Resource Configuration
 resource "aws_vpclattice_service_network_resource_association" "aurora" {
-  resource_configuration_identifier = var.aurora_resource_config_arn
+  resource_configuration_identifier = var.aurora_resource_config_id
   service_network_identifier        = aws_vpclattice_service_network.main.id
+
+  depends_on = [aws_ram_resource_share_accepter.resource_config]
 
   tags = {
     Name = "pattern-b-aurora-resource-association"
@@ -39,8 +41,10 @@ resource "aws_vpclattice_service_network_resource_association" "aurora" {
 
 # Associate Service Network with RDS Proxy Writer Resource Configuration
 resource "aws_vpclattice_service_network_resource_association" "rds_proxy_writer" {
-  resource_configuration_identifier = var.rds_proxy_writer_resource_config_arn
+  resource_configuration_identifier = var.rds_proxy_writer_resource_config_id
   service_network_identifier        = aws_vpclattice_service_network.main.id
+
+  depends_on = [aws_ram_resource_share_accepter.resource_config]
 
   tags = {
     Name = "pattern-b-rds-proxy-writer-resource-association"
@@ -49,8 +53,10 @@ resource "aws_vpclattice_service_network_resource_association" "rds_proxy_writer
 
 # Associate Service Network with RDS Proxy Reader Resource Configuration
 resource "aws_vpclattice_service_network_resource_association" "rds_proxy_reader" {
-  resource_configuration_identifier = var.rds_proxy_reader_resource_config_arn
+  resource_configuration_identifier = var.rds_proxy_reader_resource_config_id
   service_network_identifier        = aws_vpclattice_service_network.main.id
+
+  depends_on = [aws_ram_resource_share_accepter.resource_config]
 
   tags = {
     Name = "pattern-b-rds-proxy-reader-resource-association"
