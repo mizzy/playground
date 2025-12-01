@@ -12,3 +12,8 @@ variable "rds_proxy_reader_resource_config_arn" {
   description = "ARN of RDS Proxy reader resource configuration from rds-proxy account"
   type        = string
 }
+
+variable "resource_share_arn" {
+  description = "ARN of RAM Resource Share from rds-proxy account"
+  type        = string
+}

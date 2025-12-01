@@ -28,6 +28,8 @@ resource "aws_vpc_endpoint" "aurora" {
   security_group_ids         = [aws_security_group.database.id]
   private_dns_enabled        = true
 
+  depends_on = [aws_ram_resource_share_accepter.resource_config]
+
   tags = {
     Name = "pattern-a-aurora-endpoint"
   }
@@ -43,6 +45,8 @@ resource "aws_vpc_endpoint" "rds_proxy_writer" {
   security_group_ids         = [aws_security_group.database.id]
   private_dns_enabled        = true
 
+  depends_on = [aws_ram_resource_share_accepter.resource_config]
+
   tags = {
     Name = "pattern-a-rds-proxy-writer-endpoint"
   }
@@ -57,6 +61,8 @@ resource "aws_vpc_endpoint" "rds_proxy_reader" {
   subnet_ids                 = [aws_subnet.private_a.id, aws_subnet.private_c.id]
   security_group_ids         = [aws_security_group.database.id]
   private_dns_enabled        = true
+
+  depends_on = [aws_ram_resource_share_accepter.resource_config]
 
   tags = {
     Name = "pattern-a-rds-proxy-reader-endpoint"
