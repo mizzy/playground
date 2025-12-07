@@ -1,0 +1,5 @@
+region: ap-northeast-1
+cluster: fargate-rds-bastion-cluster
+task_definition: ecs-task-def.json
+service_definition: ecs-service-def.json
+timeout: 10m0s

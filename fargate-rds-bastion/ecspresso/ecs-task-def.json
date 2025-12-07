@@ -1,0 +1,33 @@
+{
+  "family": "fargate-rds-bastion",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "256",
+  "memory": "512",
+  "executionRoleArn": "arn:aws:iam::019115212452:role/fargate-rds-bastion-ecs-task-execution",
+  "taskRoleArn": "arn:aws:iam::019115212452:role/fargate-rds-bastion-ecs-task",
+  "containerDefinitions": [
+    {
+      "name": "bastion",
+      "image": "019115212452.dkr.ecr.ap-northeast-1.amazonaws.com/fargate-rds-bastion-bastion:latest",
+      "essential": true,
+      "environment": [
+        {
+          "name": "IDLE_TIMEOUT",
+          "value": "300"
+        }
+      ],
+      "linuxParameters": {
+        "initProcessEnabled": true
+      },
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/fargate-rds-bastion",
+          "awslogs-region": "ap-northeast-1",
+          "awslogs-stream-prefix": "bastion"
+        }
+      }
+    }
+  ]
+}

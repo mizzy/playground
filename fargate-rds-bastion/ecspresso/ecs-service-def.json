@@ -1,0 +1,17 @@
+{
+  "launchType": "FARGATE",
+  "platformVersion": "LATEST",
+  "networkConfiguration": {
+    "awsvpcConfiguration": {
+      "subnets": [
+        "subnet-07e6fda495164bef6",
+        "subnet-0a0c778b090758af8"
+      ],
+      "securityGroups": [
+        "sg-0922107029c0610b8"
+      ],
+      "assignPublicIp": "DISABLED"
+    }
+  },
+  "enableExecuteCommand": true
+}
