@@ -27,23 +27,3 @@ output "resource_share_arn" {
   description = "ARN of the RAM Resource Share"
   value       = aws_ram_resource_share.resource_config.arn
 }
-
-output "rds_proxy_endpoint" {
-  description = "Endpoint of the RDS Proxy (Writer)"
-  value       = aws_db_proxy.main.endpoint
-}
-
-output "rds_proxy_reader_endpoint" {
-  description = "Endpoint of the RDS Proxy Reader"
-  value       = aws_db_proxy_endpoint.reader.endpoint
-}
-
-output "rds_proxy_writer_resource_configuration_arn" {
-  description = "ARN of the RDS Proxy Writer Resource Configuration"
-  value       = aws_vpclattice_resource_configuration.rds_proxy.arn
-}
-
-output "rds_proxy_reader_resource_configuration_arn" {
-  description = "ARN of the RDS Proxy Reader Resource Configuration"
-  value       = aws_vpclattice_resource_configuration.rds_proxy_reader.arn
-}
