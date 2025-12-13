@@ -112,7 +112,7 @@ graph LR
 | **Service Network** | 共有されたResource Configurationを束ねる論理ネットワーク |
 | **VPC Endpoint** | Service NetworkをConsumer VPCに接続 |
 
-※ この図は設定時の関連を示しています。通信の流れは「4. 実践例」で詳しく説明します。
+※ この図は設定時の関連を示しています。通信の流れは「3. 実践例」で詳しく説明します。
 
 ### 他の接続パターン
 
@@ -128,7 +128,7 @@ VPC Latticeには複数の接続パターンがあります。
 
 ---
 
-## 4. 実践例：クロスアカウントRDSアクセス
+## 3. 実践例：クロスアカウントRDSアクセス
 
 VPC Latticeを使ったクロスアカウント接続では、複数のコンポーネントが連携します。
 RAMが担うのは「Resource Configurationの共有」という一部分です。
@@ -195,9 +195,9 @@ graph TB
 
 ---
 
-## 5. Terraformによる実装
+## 4. Terraformによる実装
 
-### 5.1 Provider Account側の設定
+### 4.1 Provider Account側の設定
 
 #### Resource GatewayとResource Configurationの作成
 
@@ -250,7 +250,7 @@ resource "aws_ram_principal_association" "rds_client" {
 }
 ```
 
-### 5.2 Consumer Account側の設定
+### 4.2 Consumer Account側の設定
 
 #### RAM Resource Shareの承諾
 
@@ -292,7 +292,7 @@ resource "aws_vpclattice_service_network_resource_association" "aurora" {
 
 ---
 
-## 6. Terraformでの注意点
+## 5. Terraformでの注意点
 
 ### 適用順序
 
