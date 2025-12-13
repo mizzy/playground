@@ -2,68 +2,15 @@
 
 ## 目次
 
-1. [VPC Peeringの課題とRAM + VPC Latticeによる解決](#1-vpc-peeringの課題とram--vpc-latticeによる解決)
-2. [AWS RAMとは](#2-aws-ramとは)
-3. [VPC Latticeとは](#3-vpc-latticeとは)
-4. [実践例：クロスアカウントRDSアクセス](#4-実践例クロスアカウントrdsアクセス)
-5. [Terraformによる実装](#5-terraformによる実装)
-6. [Terraformでの注意点](#6-terraformでの注意点)
+1. [AWS RAMとは](#1-aws-ramとは)
+2. [VPC Latticeとは](#2-vpc-latticeとは)
+3. [実践例：クロスアカウントRDSアクセス](#3-実践例クロスアカウントrdsアクセス)
+4. [Terraformによる実装](#4-terraformによる実装)
+5. [Terraformでの注意点](#5-terraformでの注意点)
 
 ---
 
-## 1. VPC Peeringの課題とRAM + VPC Latticeによる解決
-
-### VPC Peeringの課題
-
-```mermaid
-graph LR
-    subgraph "Account A"
-        Res_A[(リソース)]
-        VPC_A[VPC]
-    end
-
-    subgraph "Account B"
-        Client_B[Client]
-        VPC_B[VPC]
-    end
-
-    VPC_A <-->|VPC Peering| VPC_B
-    Res_A --> VPC_A
-    Client_B --> VPC_B
-```
-
-**課題:**
-- CIDRの重複が許されない
-
-### RAM + VPC Latticeによる解決
-
-```mermaid
-graph LR
-    subgraph "Provider Account"
-        Res[(リソース)]
-        RGW[Resource<br/>Gateway]
-        RC[Resource<br/>Configuration]
-    end
-
-    subgraph "Consumer Account"
-        SN[Service<br/>Network]
-        VPCE[VPC<br/>Endpoint]
-        Client[Client]
-    end
-
-    RC ---|参照| RGW
-    RC ---|参照| Res
-    RC -.->|RAM Share| SN
-    SN --- VPCE
-    VPCE --- Client
-```
-
-**利点:**
-- VPCのCIDRが重複しても問題なし
-
----
-
-## 2. AWS RAMとは
+## 1. AWS RAMとは
 
 ### 概要
 
@@ -127,7 +74,7 @@ RAMで共有できるリソースには、**組織外にも共有可能なもの
 
 ---
 
-## 3. VPC Latticeとは
+## 2. VPC Latticeとは
 
 ### 概要
 
