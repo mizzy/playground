@@ -44,7 +44,7 @@ graph LR
 
 #### Provider側
 
-| 構成要素 | 説明 | Terraformリソース |
+| 構成要素 | 役割 | Terraformリソース |
 |---------|------|-------------------|
 | **Resource Share** | 共有の入れ物 | `aws_ram_resource_share` |
 | **Resource Association** | 共有するリソース | `aws_ram_resource_association` |
@@ -52,7 +52,7 @@ graph LR
 
 #### Consumer側
 
-| 構成要素 | 説明 | Terraformリソース |
+| 構成要素 | 役割 | Terraformリソース |
 |---------|------|-------------------|
 | **Resource Share Accepter** | 共有の承諾 | `aws_ram_resource_share_accepter` |
 
@@ -80,7 +80,9 @@ RAMで共有できるリソースには、**組織外にも共有可能なもの
 
 **Amazon VPC Lattice** は、VPCやアカウントを跨いだサービス間通信を実現するネットワーキングサービスです。
 
-### 主要コンポーネント（クロスアカウントでのService Network + VPC Endpoint パターン）
+### 主要コンポーネント
+
+クロスアカウントでのService Network + VPC Endpointパターンの構成要素です。
 
 ```mermaid
 graph LR
@@ -105,12 +107,20 @@ graph LR
     VPCE --- App
 ```
 
-| コンポーネント | 役割 |
-|---------------|------|
-| **Resource Gateway** | VPC内プライベートリソースへの入口 |
-| **Resource Configuration** | Resource Gateway経由でアクセスするリソースの定義 |
-| **Service Network** | 共有されたResource Configurationを束ねる論理ネットワーク |
-| **VPC Endpoint** | Service NetworkをConsumer VPCに接続 |
+#### Provider側
+
+| 構成要素 | 役割 | Terraformリソース |
+|---------|------|-------------------|
+| **Resource Gateway** | VPC内プライベートリソースへの入口 | `aws_vpclattice_resource_gateway` |
+| **Resource Configuration** | Resource Gateway経由でアクセスするリソースの定義 | `aws_vpclattice_resource_configuration` |
+
+#### Consumer側
+
+| 構成要素 | 役割 | Terraformリソース |
+|---------|------|-------------------|
+| **Service Network** | 共有されたResource Configurationを束ねる論理ネットワーク | `aws_vpclattice_service_network` |
+| **VPC Endpoint** | Service NetworkをConsumer VPCに接続 | `aws_vpc_endpoint` |
+| **Resource Association** | Resource ConfigurationとService Networkの関連付け | `aws_vpclattice_service_network_resource_association` |
 
 ※ この図は設定時の関連を示しています。通信の流れは「3. 実践例」で詳しく説明します。
 
@@ -183,10 +193,10 @@ graph TB
 
 **ポイント**: Consumer AccountのService Networkは、RAMで共有されたResource Configurationの情報をもとに、トラフィックをどこに送ればいいか（Resource Gateway）を知ることができます。
 
-#### 各コンポーネントの役割
+#### 各構成要素の役割
 
-| コンポーネント | 配置 | 役割 |
-|---------------|------|------|
+| 構成要素 | 配置 | 役割 |
+|---------|------|------|
 | **Resource Gateway** | Provider | VPC内のプライベートリソースへの入口。RDSなどへのトラフィックを中継 |
 | **Resource Configuration** | Provider | 「どのResource Gatewayを経由して、どのリソースにアクセスするか」を定義 |
 | **RAM Resource Share** | - | Resource Configurationを別アカウントに共有するための仕組み |
