@@ -12,25 +12,23 @@
 
 ## 1. AWS RAMとは
 
-### 概要
+### 1.1 概要
 
-**AWS Resource Access Manager (RAM)** は、AWSリソースを複数のAWSアカウント間で安全に共有するためのサービスです。
+**AWS Resource Access Manager (RAM)** は、AWSリソースを複数のAWSアカウント間で共有するためのサービスです。
 
-### 主な機能
-
-- リソースを複数アカウントで共有
-
-### 共有可能なリソース例
+### 1.2 共有可能なリソース例
 
 - VPCサブネット
 - Transit Gateway
 - Route 53 Resolver ルール
 - License Manager ライセンス設定
-- **VPC Lattice Resource Configuration** ← 今回のテーマ
+- VPC Lattice Resource Configuration
 
-### Resource Shareの構成要素
+参考: [共有可能な AWS リソース](https://docs.aws.amazon.com/ja_jp/ram/latest/userguide/shareable.html)
 
-Resource Shareは「何を」「誰に」共有するかを定義します。
+### 1.3 Resource Shareの構成要素
+
+リソースを共有するには、Resource Shareを作成します。Resource Shareは「何を」「誰に」共有するかを定義します。
 
 ```mermaid
 graph LR
@@ -56,9 +54,9 @@ graph LR
 |---------|------|-------------------|
 | **Resource Share Accepter** | 共有の承諾 | `aws_ram_resource_share_accepter` |
 
-※ AWS Organizations内で「RAM共有の自動承諾」を有効にしている場合は承諾不要
+※ 同一Organization内で、RAMコンソール → 設定 →「AWS Organizationsとの共有を有効にする」を設定している場合は承諾不要
 
-### リソースタイプごとの共有範囲
+### 1.4 リソースタイプごとの共有範囲
 
 RAMで共有できるリソースには、**組織外にも共有可能なもの**と、**組織内のみ共有可能なもの**があります。
 
@@ -67,8 +65,7 @@ RAMで共有できるリソースには、**組織外にも共有可能なもの
 | **組織外にも共有可能** | VPC Lattice（Service Network、Service、Resource Configuration）、Aurora DBクラスター、Transit Gateway、Prefix List |
 | **組織内のみ共有可能** | VPCサブネット、Security Group、Outposts、AWS Cloud Map Namespace |
 
-- VPC Lattice Resource Configurationは組織外にも共有可能
-- 組織内のみ共有可能なリソースは、管理アカウントのRAMコンソール → 設定 →「AWS Organizationsとの共有を有効にする」が必要
+※ 組織内のみ共有可能なリソースは、管理アカウントのRAMコンソール → 設定 →「AWS Organizationsとの共有を有効にする」が必要
 
 参考: [共有可能な AWS リソース](https://docs.aws.amazon.com/ja_jp/ram/latest/userguide/shareable.html)
 
@@ -76,13 +73,34 @@ RAMで共有できるリソースには、**組織外にも共有可能なもの
 
 ## 2. VPC Latticeとは
 
-### 概要
+### 2.1 概要
 
-**Amazon VPC Lattice** は、VPCやアカウントを跨いだサービス間通信を実現するネットワーキングサービスです。
+**Amazon VPC Lattice** は、VPCやアカウントを跨いだ通信を実現するネットワーキングサービスです。
 
-### 主要コンポーネント
+### 2.2 主要コンポーネント
 
-クロスアカウントでのService Network + VPC Endpointパターンの構成要素です。
+VPC Latticeには主に2つのパターンがあります。
+
+| パターン | 用途 | 主な構成要素 |
+|---------|------|-------------|
+| **Service + Target Group** | HTTP/HTTPS/gRPCサービスの公開 | Service、Target Group、Listener |
+| **Resource Gateway + Resource Configuration** | TCP/UDPリソース（RDS等）へのアクセス | Resource Gateway、Resource Configuration |
+
+RDSはTCPリソースのため、後者のパターンにフォーカスします。
+
+### 2.3 接続パターン
+
+Resource Gateway + Resource Configurationパターンには複数の接続方法があります。
+
+| パターン | IPアドレス | 元のDNS名で接続                                                |
+|---------|-----------|----------------------------------------------------------|
+| **Service Network VPC Association** | Link-local (169.254.171.0/24) | 非対応（Lattice DNS名を使用）                                     |
+| **Service Network VPC Endpoint** | VPC CIDR（ENI作成） | ARN-basedは対応、DNS-basedは最近対応したようだが未検証なのと、現時点でTerraform未対応 |
+| **Resource VPC Endpoint** | VPC CIDR（ENI作成） | ARN-basedは対応、DNS-basedは最近対応したようだが未検証なのと、現時点でTerraform未対応 |
+
+### 2.4 Service Network VPC Endpointパターンの構成要素
+
+以下はService Network VPC Endpointパターンの構成要素です。
 
 ```mermaid
 graph LR
@@ -99,10 +117,10 @@ graph LR
         App[アプリケーション]
     end
 
-    RC ---|"参照"| RGW
-    RC ---|"参照"| Res
+    RC --- RGW
+    RC --- Res
     RC -.->|"RAMで共有"| RC2
-    RC2 ---|"関連付け"| SN
+    RC2 --- SN
     SN --- VPCE
     VPCE --- App
 ```
@@ -111,49 +129,35 @@ graph LR
 
 | 構成要素 | 役割 | Terraformリソース |
 |---------|------|-------------------|
-| **Resource Gateway** | VPC内プライベートリソースへの入口 | `aws_vpclattice_resource_gateway` |
+| **Resource Gateway** | リソースへのトラフィックを受け入れる入口 | `aws_vpclattice_resource_gateway` |
 | **Resource Configuration** | Resource Gateway経由でアクセスするリソースの定義 | `aws_vpclattice_resource_configuration` |
 
 #### Consumer側
 
 | 構成要素 | 役割 | Terraformリソース |
 |---------|------|-------------------|
-| **Service Network** | 共有されたResource Configurationを束ねる論理ネットワーク | `aws_vpclattice_service_network` |
 | **VPC Endpoint** | Service NetworkをConsumer VPCに接続 | `aws_vpc_endpoint` |
-| **Resource Association** | Resource ConfigurationとService Networkの関連付け | `aws_vpclattice_service_network_resource_association` |
+| **Service Network** | 共有されたResource Configurationを束ねる論理ネットワーク | `aws_vpclattice_service_network` |
+| **Service Network Resource Association** | Resource ConfigurationとService Networkの関連付け | `aws_vpclattice_service_network_resource_association` |
 
 ※ この図は設定時の関連を示しています。通信の流れは「3. 実践例」で詳しく説明します。
-
-### 他の接続パターン
-
-VPC Latticeには複数の接続パターンがあります。
-
-| パターン | IPアドレス | オンプレミス（DX/VPN）/TGW/Peering経由 | Service Network |
-|---------|-----------|---------------------------|-----------------|
-| **Service Network VPC Association** | Link-local (169.254.171.0/24) | 不可 | 1つのみ |
-| **Service Network VPC Endpoint** | VPC CIDR（ENI作成） | 可能 | 複数可能 |
-| **Resource VPC Endpoint** | VPC CIDR（ENI作成） | 可能 | 不要 |
-
-※ 今回は **Service Network VPC Endpoint** パターンを採用
 
 ---
 
 ## 3. 実践例：クロスアカウントRDSアクセス
 
-VPC Latticeを使ったクロスアカウント接続では、複数のコンポーネントが連携します。
-RAMが担うのは「Resource Configurationの共有」という一部分です。
+### 3.1 構成と実行時のフロー
 
-### 構成と実行時のフロー
+接続パターンは **Service Network VPC Endpoint** を採用しています。
 
 ```mermaid
 graph TB
     subgraph "Provider Account（リソース提供側）"
-        RDS[(RDS/Aurora)]
+        RDS[(RDS)]
         RGW[Resource Gateway]
         subgraph RC_BOX["Resource Configuration"]
-            RC_GW["Resource Gateway参照"]
+            RC_GW["Resource Gateway ID"]
             RC_ARN["リソース識別情報<br/>（ARN/ドメイン名/IP）"]
-            RC_PORT["ポート範囲"]
         end
     end
 
@@ -168,18 +172,18 @@ graph TB
     end
 
     %% 構成時の関連（点線・グレー）
-    RC_GW -.-|"参照"| RGW
-    RC_ARN -.-|"参照"| RDS
+    RC_GW -.- RGW
+    RC_ARN -.- RDS
 
     %% RAMで共有（オレンジ）
     RC_BOX -->|"RAMで共有"| Share
     Share -->|"設定を受け取る"| SN
 
     %% 実行時のフロー（青）
-    App -->|"1. 接続要求"| VPCE
-    VPCE -->|"2. ルーティング"| SN
-    SN -->|"3. 転送"| RGW
-    RGW -->|"4. 接続"| RDS
+    App --> VPCE
+    VPCE --> SN
+    SN --> RGW
+    RGW --> RDS
 
     %% スタイル定義
     linkStyle 0,1 stroke:#999,stroke-dasharray:5
@@ -189,7 +193,7 @@ graph TB
 
 - <span style="color:#e67e22">**オレンジ線**</span>: 構成時にRAMで共有される接続設定
 - <span style="color:#999">**グレー点線**</span>: Resource Configurationが参照する情報
-- <span style="color:#3498db">**青線**</span>: 実行時のデータフロー
+- <span style="color:#3498db">**青線**</span>: 通信の流れ
 
 **ポイント**: Consumer AccountのService Networkは、RAMで共有されたResource Configurationの情報をもとに、トラフィックをどこに送ればいいか（Resource Gateway）を知ることができます。
 
@@ -197,8 +201,8 @@ graph TB
 
 | 構成要素 | 配置 | 役割 |
 |---------|------|------|
-| **Resource Gateway** | Provider | VPC内のプライベートリソースへの入口。RDSなどへのトラフィックを中継 |
-| **Resource Configuration** | Provider | 「どのResource Gatewayを経由して、どのリソースにアクセスするか」を定義 |
+| **Resource Gateway** | Provider | RDSなどへのトラフィックを受け入れる入口 |
+| **Resource Configuration** | Provider | アクセス対象のリソースとResource Gatewayの紐付けを定義 |
 | **RAM Resource Share** | - | Resource Configurationを別アカウントに共有するための仕組み |
 | **Service Network** | Consumer | 共有されたResource Configurationを束ねる論理的なネットワーク |
 | **VPC Endpoint** | Consumer | Service NetworkをConsumer VPCに接続するエンドポイント |
@@ -304,7 +308,7 @@ resource "aws_vpclattice_service_network_resource_association" "aurora" {
 
 ## 5. Terraformでの注意点
 
-### 適用順序
+### 5.1 適用順序
 
 Provider側で Resource Share を作成しないと `share_arn` が確定しないため、Consumer側の `aws_ram_resource_share_accepter` を設定できません。
 
@@ -314,7 +318,7 @@ Provider側で Resource Share を作成しないと `share_arn` が確定しな�
 3. Consumer側: terraform apply
 ```
 
-### Resource Share Invitationの有効期限
+### 5.2 Resource Share Invitationの有効期限
 
 Resource Share Invitationには有効期限があります。Provider側で `terraform apply` した後、有効期限内にConsumer側で `terraform apply`（または手動accept）を完了する必要があります。
 
@@ -323,17 +327,19 @@ Resource Share Invitationには有効期限があります。Provider側で `ter
 | 有効期限 | 対象リソースタイプ |
 |---------|-------------------|
 | **7日間** | Aurora DBクラスター、EC2（Capacity Reservations、Dedicated Hosts）、License Manager、Outposts、Route 53 Forwarding Rules、VPC（サブネット、Transit Gateway等） |
-| **12時間** | 上記以外のリソースタイプ（**VPC Lattice Resource Configuration含む**） |
+| **12時間** | 上記以外のリソースタイプ（VPC Lattice Resource Configuration含む） |
 
-招待を再作成した場合、`share_arn` が変わる可能性があります（公式ドキュメントには明記されていません）。変わった場合はConsumer側のコードも更新が必要になる可能性があります。
+招待を再作成した場合、`share_arn` が変わる可能性があります（公式ドキュメントには明記されていません）。変わった場合はConsumer側のコードも更新が必要になります。
 
 参考: [リソース共有への招待の承諾と拒否](https://docs.aws.amazon.com/ja_jp/ram/latest/userguide/working-with-shared-invitations.html)
 
-### share_arnの受け渡し
+### 5.3 share_arnの受け渡し
 
-`share_arn` はacceptするまでConsumer側からは見えないため、Provider/Consumer間でのARN受け渡しを完全に自動化することは難しいです。
+`share_arn` はacceptするまでConsumer側からは見えないため、Provider/Consumer間での受け渡しを完全に自動化することは難しいです。
 
-無理に自動化せず、accepterはTerraform管理せずに手動でacceptするやり方もアリです。
+`resource_configuration_identifier` はaccept後にVPC Latticeコンソールや `aws vpc-lattice list-resource-configurations` で確認できます。ただし、Terraformには `data.aws_vpclattice_resource_configuration` データソースが存在しないため、Terraform内で動的に取得することはできません。
+
+無理に自動化せず、Resource Shareのacceptや`resource_configuration_identifier`の反映は手動で行う運用が現実的です。
 
 ```bash
 # 招待一覧を確認してARNを取得
@@ -344,4 +350,7 @@ INVITATION_ARN=$(aws ram get-resource-share-invitations \
 # 招待を承諾
 aws ram accept-resource-share-invitation \
   --resource-share-invitation-arn "$INVITATION_ARN"
+
+# accept後、共有されたリソース（Resource Configuration ID等）を確認
+aws ram list-resources --resource-owner OTHER-ACCOUNTS
 ```
