@@ -95,8 +95,10 @@ Resource Gateway + Resource Configurationパターンには複数の接続方法
 | パターン | IPアドレス | 元のDNS名で接続                                                |
 |---------|-----------|----------------------------------------------------------|
 | **Service Network VPC Association** | Link-local (169.254.171.0/24) | 非対応（Lattice DNS名を使用）                                     |
-| **Service Network VPC Endpoint** | VPC CIDR（ENI作成） | ARN-basedは対応、DNS-basedは最近対応したようだが未検証なのと、現時点でTerraform未対応 |
-| **Resource VPC Endpoint** | VPC CIDR（ENI作成） | ARN-basedは対応、DNS-basedは最近対応したようだが未検証なのと、現時点でTerraform未対応 |
+| **Service Network VPC Endpoint** | VPC CIDR（ENI作成） | ARN-basedは対応、DNS-basedは最近対応したようだが※未検証なのと、現時点でTerraform未対応 |
+| **Resource VPC Endpoint** | VPC CIDR（ENI作成） | ARN-basedは対応、DNS-basedは最近対応したようだが※未検証なのと、現時点でTerraform未対応 |
+
+※ [Amazon VPC Lattice がリソース構成向けにカスタムドメイン名のサポートを開始 - AWS](https://aws.amazon.com/jp/about-aws/whats-new/2025/11/amazon-vpc-lattice-custom-domain-name-resource-configuration/)
 
 ### 2.4 Service Network VPC Endpointパターンの構成要素
 
