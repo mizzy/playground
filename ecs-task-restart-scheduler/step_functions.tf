@@ -50,7 +50,7 @@ resource "aws_sfn_state_machine" "restart_oldest_task" {
 
       GetOldestTask = {
         Type   = "Pass"
-        Output = "{% $sort($states.input.Tasks, function($a, $b) { $a.StartedAt < $b.StartedAt })[0].TaskArn %}"
+        Output = "{% $sort($states.input.Tasks, function($a, $b) { $a.StartedAt > $b.StartedAt })[0].TaskArn %}"
         Next   = "StopTask"
       }
 
