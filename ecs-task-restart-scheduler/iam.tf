@@ -28,6 +28,8 @@ resource "aws_iam_role_policy" "step_functions_ecs" {
         Action = [
           "ecs:ListTasks",
           "ecs:DescribeTasks",
+          "ecs:DescribeServices",
+          "ecs:UpdateService",
           "ecs:StopTask"
         ]
         Resource = "*"
