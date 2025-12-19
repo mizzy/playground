@@ -18,6 +18,9 @@ resource "aws_sfn_state_machine" "restart_oldest_task" {
           Cluster  = var.ecs_cluster_name
           Services = [var.ecs_service_name]
         }
+        Output = {
+          "CurrentDesiredCount" = "{% $states.result.Services[0].DesiredCount %}"
+        }
         Next = "ListTasks"
       }
 
@@ -30,7 +33,7 @@ resource "aws_sfn_state_machine" "restart_oldest_task" {
           DesiredStatus = "RUNNING"
         }
         Output = {
-          "CurrentDesiredCount" = "{% $states.input.Services[0].DesiredCount %}"
+          "CurrentDesiredCount" = "{% $states.input.CurrentDesiredCount %}"
           "TaskArns"            = "{% $states.result.TaskArns %}"
         }
         Next = "CheckTasksExist"
