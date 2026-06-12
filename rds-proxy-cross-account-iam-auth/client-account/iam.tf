@@ -29,9 +29,12 @@ resource "aws_iam_role_policy" "db_connect_direct" {
     Version = "2012-10-17"
     Statement = [
       {
-        Effect   = "Allow"
-        Action   = "rds-db:connect"
-        Resource = "arn:aws:rds-db:ap-northeast-1:${var.rds_account_id}:dbuser:${var.rds_proxy_resource_id}/${var.db_username}"
+        Effect = "Allow"
+        Action = "rds-db:connect"
+        Resource = concat(
+          ["arn:aws:rds-db:ap-northeast-1:${var.rds_account_id}:dbuser:${var.rds_proxy_resource_id}/${var.db_username}"],
+          var.rds_db_resource_id == null ? [] : ["arn:aws:rds-db:ap-northeast-1:${var.rds_account_id}:dbuser:${var.rds_db_resource_id}/${var.iam_db_username}"]
+        )
       }
     ]
   })

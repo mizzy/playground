@@ -20,6 +20,14 @@ resource "aws_vpc_security_group_ingress_rule" "rds_from_proxy" {
   ip_protocol                  = "tcp"
 }
 
+resource "aws_vpc_security_group_ingress_rule" "rds_from_client_vpc" {
+  security_group_id = aws_security_group.rds.id
+  cidr_ipv4         = var.client_vpc_cidr
+  from_port         = 5432
+  to_port           = 5432
+  ip_protocol       = "tcp"
+}
+
 resource "aws_db_instance" "this" {
   identifier     = local.name
   engine         = "postgres"
@@ -32,8 +40,11 @@ resource "aws_db_instance" "this" {
   username                    = local.db_username
   manage_master_user_password = true
 
+  iam_database_authentication_enabled = true
+
   db_subnet_group_name   = aws_db_subnet_group.this.name
   vpc_security_group_ids = [aws_security_group.rds.id]
 
+  apply_immediately   = true
   skip_final_snapshot = true
 }
