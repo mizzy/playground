@@ -24,9 +24,10 @@ RDS Proxyに対して別アカウントのクライアントからIAM認証で�
 +----------------------------------------+     +----------------------------------------+
 ```
 
-- RDSインスタンス自体はパスワード認証(IAM DB認証は無効)。マスターユーザーのパスワードは `manage_master_user_password` によりSecrets Managerで管理
-- RDS Proxy → RDS間はSecrets Managerの認証情報で接続
-- クライアント → RDS Proxy間のみIAM認証(`iam_auth = "REQUIRED"`)
+- RDSインスタンスのマスターユーザー(dbadmin)はパスワード認証。パスワードは `manage_master_user_password` によりSecrets Managerで管理
+- RDSインスタンスは `iam_database_authentication_enabled = true` でIAM DB認証も有効化済み。直接IAM認証の検証用に `rds_iam` ロールを付与した `iam_user` を別途作成してある(dbadminに `rds_iam` を付与するとパスワード認証が拒否されるようになり、Proxy → RDS間の接続が壊れるため別ユーザーとしている)
+- 現在のコードは**end-to-end IAM認証**構成(`default_auth_scheme = "IAM_AUTH"`)。クライアント → Proxy間もProxy → RDS間もIAM認証で、ProxyへのSecrets Managerシークレット登録は不要。Proxy経由で接続できるのは `rds_iam` を付与したユーザー(iam_user)のみで、dbadminはProxy経由では接続できない
+- 切り替え前の標準IAM認証構成(クライアント → Proxy間のみIAM認証 `iam_auth = "REQUIRED"`、Proxy → RDS間はSecrets Managerのパスワード)でも検証済み(検証結果参照)
 - 検証パターンは2つ
   1. **直接パターン**: クライアントアカウントのIAMロールに `rds-db:connect` を直接付与してトークンを生成
   2. **AssumeRoleパターン**: RDSアカウント側の `db-connect` ロールにAssumeRoleしてからトークンを生成
@@ -187,6 +188,8 @@ Apply complete! Resources: 1 added, 0 changed, 0 destroyed.
 
 ### Step 5: IAM認証での接続検証(CloudShell)
 
+**注意**: 以下の手順はProxyが標準IAM認証構成(`auth_scheme = SECRETS`)だった時点のもの。現在のコードはend-to-end IAM認証構成(Step 7参照)のため、Proxy経由で接続できるのは `iam_user` のみで、手順中の `dbadmin` は `iam_user` に読み替える(`iam_user` の作成はStep 6-1参照)。
+
 クライアントアカウントのCloudShell VPC環境からRDS ProxyにIAM認証で接続する。CloudShellの認証情報はコンソールにログインしているIAMプリンシパルのものになる。`db-connect` ロールの信頼ポリシーはクライアントアカウント全体(`arn:aws:iam::914357407416:root`)を許可しているため、コンソールプリンシパルに `sts:AssumeRole` 権限があれば追加設定なしでAssumeRoleパターンを検証できる。
 
 #### 5-1. CloudShell VPC環境の作成
@@ -310,12 +313,116 @@ aws-vault exec rds-client -- aws ssm start-session --target i-xxxxxxxxxxxxxxxxx 
 
 セッション内の手順は5-3、5-4と同じ。EC2にはjqが入っていないため、認証情報の取り出しには `python3 -c "import sys,json; print(json.load(sys.stdin)['AccessKeyId'])"` のようにpython3を使うか、`sudo dnf install -y jq` でjqをインストールする。
 
+### Step 6: RDSインスタンスへの直接IAM認証の検証
+
+RDS Proxyを経由せず、RDSインスタンスに直接IAM認証で接続するパターンも検証できる。RDSインスタンスの `iam_database_authentication_enabled = true` と、RDS用セキュリティグループへのクライアントVPC CIDR許可は設定済み。
+
+#### 6-1. IAM認証用DBユーザーの作成(初回のみ)
+
+`rds_iam` ロールを付与したDBユーザーを作成する。Step 5-3(AssumeRole + Proxy経由でdbadmin接続)の状態から続けて実行する。
+
+```bash
+psql "$CONN" -c "CREATE USER iam_user WITH LOGIN;"
+psql "$CONN" -c "GRANT rds_iam TO iam_user;"
+```
+
+end-to-end IAM認証構成ではProxy経由のdbadmin接続ができないため、マスターパスワードをSecrets Managerから取得し、RDSインスタンスに直接接続して実行する。
+
+```bash
+SECRET_ARN=$(aws-vault exec rds-proxy -- aws rds describe-db-instances \
+  --db-instance-identifier cross-account-iam-auth \
+  --query 'DBInstances[0].MasterUserSecret.SecretArn' --output text)
+aws-vault exec rds-proxy -- aws secretsmanager get-secret-value \
+  --secret-id "$SECRET_ARN" --query SecretString --output text
+```
+
+#### 6-2. RDSインスタンスへ直接IAM認証で接続
+
+`RDS` にはrds-accountの `rds_endpoint` 出力値を設定する。AssumeRoleした状態のまま実行する。
+
+```bash
+RDS="<rds_endpointの値>"
+RCONN="host=$RDS port=5432 dbname=appdb user=iam_user sslmode=require"
+TOKEN=$(aws rds generate-db-auth-token --hostname "$RDS" \
+  --port 5432 --username iam_user --region ap-northeast-1)
+export PGPASSWORD="$TOKEN"
+psql "$RCONN" -c "SELECT current_user, inet_server_addr();"
+```
+
+#### 期待される出力例
+
+AssumeRoleした状態(成功するパターン):
+
+```
+ current_user | inet_server_addr
+--------------+------------------
+ iam_user     | 10.0.x.x
+(1 row)
+```
+
+クライアントアカウントのプリンシパルのまま(失敗するパターン):
+
+```
+FATAL:  PAM authentication failed for user "iam_user"
+```
+
+#### 確認項目
+
+- [ ] AssumeRole状態で `current_user = iam_user` で接続できる
+- [ ] クライアントアカウントのプリンシパルのままでは `PAM authentication failed` で拒否される
+
+### Step 7: end-to-end IAM認証への切り替えと検証
+
+2025年9月リリースの[end-to-end IAM認証](https://aws.amazon.com/about-aws/whats-new/2025/09/amazon-rds-proxy-end-to-end-iam-authentication/)により、Proxy → RDS間もIAM認証にできる(ProxyへのSecrets Managerシークレット登録が不要になる)。現在のコードはこの構成になっている。
+
+標準IAM認証構成からの変更点:
+
+- `aws_db_proxy` に `default_auth_scheme = "IAM_AUTH"` を設定し、`auth` ブロック(Secrets Manager参照)を削除
+- ProxyのIAMロールの権限を `secretsmanager:GetSecretValue` + `kms:Decrypt` から、RDSインスタンスへの `rds-db:connect`(iam_user)に変更
+- `db-connect` ロールにProxyの `iam_user` 用dbuser ARNを追加
+- 接続先のDBユーザーは `rds_iam` を付与済みであること(Proxy → RDS間の接続もIAM認証になるため)
+
+#### 実行コマンド(AssumeRole後に実行)
+
+```bash
+TOKEN=$(aws rds generate-db-auth-token --hostname "$PROXY" \
+  --port 5432 --username iam_user --region ap-northeast-1)
+export PGPASSWORD="$TOKEN"
+psql "host=$PROXY port=5432 dbname=appdb user=iam_user sslmode=require" \
+  -c "SELECT current_user, inet_server_addr();"
+```
+
+#### 確認項目
+
+- [ ] AssumeRole状態で `current_user = iam_user` で接続できる
+- [ ] `rds_iam` のないユーザー(dbadmin)では `FATAL: This RDS proxy has no credentials for the role dbadmin` で拒否される
+
+切り替え直後は、標準IAM認証時代に確立されたプール内のバックエンド接続が再利用され、dbadminでも接続できてしまうことがある。プールの接続が切れた後(インスタンス再起動後など)は上記のエラーで一貫して拒否される。
+
 ## 検証結果(2026-06-12実施)
 
-| パターン | 結果 | 出力 |
-|---------|------|------|
-| 1. 直接(クライアントアカウントのロールに `rds-db:connect` を直接付与) | **失敗** | `FATAL: The IAM authentication failed for the role dbadmin. Check the IAM token for this role and try again.` |
-| 2. AssumeRole(RDSアカウント側の `db-connect` ロールにAssumeRoleしてからトークン生成) | **成功** | `current_user = dbadmin` で接続でき、`inet_server_addr = 10.0.1.145`(Proxy経由のRDS接続)が返った |
+**結論: 別アカウントのクライアントからRDS ProxyへのIAM認証接続は達成できた。** 方法は「Proxyと同一アカウントのIAMロールにAssumeRoleしてから認証トークンを生成する」で、標準IAM認証構成・end-to-end IAM認証構成のどちらでも成功した(パターン2、5)。RDSインスタンスへの直接IAM認証も同様に成功した(パターン4)。
+
+以下の表で「接続失敗」となっているパターンは、制約を確認するために意図的に実行したテストで、すべて期待どおりの結果(検証としては全パターン成功)。
+
+標準IAM認証構成(クライアント → Proxy間のみIAM認証):
+
+| パターン | 種別 | 接続 | 出力 |
+|---------|------|------|------|
+| 1. Proxy × クライアントアカウントのロールのまま | 制約の確認 | 失敗(期待どおり) | `FATAL: The IAM authentication failed for the role dbadmin. Check the IAM token for this role and try again.` |
+| 2. Proxy × AssumeRole | **目的の検証** | **成功** | `current_user = dbadmin` で接続でき、`inet_server_addr = 10.0.1.145`(Proxy経由のRDS接続)が返った |
+| 3. RDSインスタンス直接 × クライアントアカウントのロールのまま | 制約の確認 | 失敗(期待どおり) | `FATAL: PAM authentication failed for user "iam_user"` |
+| 4. RDSインスタンス直接 × AssumeRole | **目的の検証** | **成功** | `current_user = iam_user` で接続できた |
+
+end-to-end IAM認証構成(Proxy → RDS間もIAM認証、シークレット登録なし):
+
+| パターン | 種別 | 接続 | 出力 |
+|---------|------|------|------|
+| 5. Proxy経由 iam_user × AssumeRole | **目的の検証** | **成功** | `current_user = iam_user` で接続できた(シークレット登録ゼロ) |
+| 6. Proxy経由 dbadmin(`rds_iam` なし) × AssumeRole | 制約の確認 | 失敗(期待どおり) | `FATAL: This RDS proxy has no credentials for the role dbadmin` |
+| 7. Proxy経由 iam_user × クライアントアカウントのロールのまま | 制約の確認 | 失敗(期待どおり) | `FATAL: The IAM authentication failed for the role iam_user`(クロスアカウント直接はe2eでも不可) |
+
+RDS Proxy経由・RDSインスタンス直接のどちらでも結論は同じで、`rds-db:connect` の権限評価はトークンに署名したプリンシパルの所属アカウントで行われるため、クロスアカウントの直接IAM認証は通らない。エラーメッセージはProxyが `The IAM authentication failed for the role ...`、RDSインスタンスが `PAM authentication failed for user "..."` と異なる。
 
 `rds-db:connect` はリソースベースポリシーをサポートしないため、別アカウントのプリンシパルが署名したトークンは(自アカウントのIAMポリシーで対象ARNを許可していても)Proxy側で認証されない。クロスアカウントでRDS ProxyにIAM認証する場合は、**Proxyと同一アカウントのIAMロールへAssumeRoleしてからトークンを生成する**必要がある。
 

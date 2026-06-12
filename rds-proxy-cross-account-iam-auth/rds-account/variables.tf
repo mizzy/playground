@@ -22,6 +22,7 @@ variable "peering_accepted" {
 }
 
 locals {
-  name        = "cross-account-iam-auth"
-  db_username = "dbadmin"
+  name            = "cross-account-iam-auth"
+  db_username     = "dbadmin"
+  iam_db_username = "iam_user"
 }

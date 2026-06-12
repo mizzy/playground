@@ -1,8 +1,10 @@
 data "aws_caller_identity" "current" {}
 
 locals {
-  proxy_resource_id = split(":", aws_db_proxy.this.arn)[6]
-  db_user_arn       = "arn:aws:rds-db:ap-northeast-1:${data.aws_caller_identity.current.account_id}:dbuser:${local.proxy_resource_id}/${local.db_username}"
+  proxy_resource_id  = split(":", aws_db_proxy.this.arn)[6]
+  db_user_arn        = "arn:aws:rds-db:ap-northeast-1:${data.aws_caller_identity.current.account_id}:dbuser:${local.proxy_resource_id}/${local.db_username}"
+  proxy_iam_user_arn = "arn:aws:rds-db:ap-northeast-1:${data.aws_caller_identity.current.account_id}:dbuser:${local.proxy_resource_id}/${local.iam_db_username}"
+  rds_db_user_arn    = "arn:aws:rds-db:ap-northeast-1:${data.aws_caller_identity.current.account_id}:dbuser:${aws_db_instance.this.resource_id}/${local.iam_db_username}"
 }
 
 data "aws_iam_policy_document" "db_connect_assume" {
@@ -24,7 +26,7 @@ resource "aws_iam_role" "db_connect" {
 data "aws_iam_policy_document" "db_connect" {
   statement {
     actions   = ["rds-db:connect"]
-    resources = [local.db_user_arn]
+    resources = [local.db_user_arn, local.proxy_iam_user_arn, local.rds_db_user_arn]
   }
 }
 

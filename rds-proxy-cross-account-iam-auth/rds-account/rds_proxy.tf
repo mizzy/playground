@@ -41,19 +41,8 @@ resource "aws_iam_role" "rds_proxy" {
 
 data "aws_iam_policy_document" "rds_proxy" {
   statement {
-    actions   = ["secretsmanager:GetSecretValue"]
-    resources = [aws_db_instance.this.master_user_secret[0].secret_arn]
-  }
-
-  statement {
-    actions   = ["kms:Decrypt"]
-    resources = ["*"]
-
-    condition {
-      test     = "StringEquals"
-      variable = "kms:ViaService"
-      values   = ["secretsmanager.ap-northeast-1.amazonaws.com"]
-    }
+    actions   = ["rds-db:connect"]
+    resources = [local.rds_db_user_arn]
   }
 }
 
@@ -70,12 +59,7 @@ resource "aws_db_proxy" "this" {
   vpc_subnet_ids         = [for s in aws_subnet.private : s.id]
   vpc_security_group_ids = [aws_security_group.rds_proxy.id]
   require_tls            = true
-
-  auth {
-    auth_scheme = "SECRETS"
-    iam_auth    = "REQUIRED"
-    secret_arn  = aws_db_instance.this.master_user_secret[0].secret_arn
-  }
+  default_auth_scheme    = "IAM_AUTH"
 }
 
 resource "aws_db_proxy_default_target_group" "this" {

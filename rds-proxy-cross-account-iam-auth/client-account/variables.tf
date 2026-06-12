@@ -34,6 +34,18 @@ variable "db_username" {
   default     = "dbadmin"
 }
 
+variable "rds_db_resource_id" {
+  description = "RDSインスタンスのリソースID(直接IAM認証の検証時に設定する)"
+  type        = string
+  default     = null
+}
+
+variable "iam_db_username" {
+  description = "RDSインスタンスへの直接IAM認証で接続するDBユーザー名"
+  type        = string
+  default     = "iam_user"
+}
+
 locals {
   name = "cross-account-iam-auth"
 }
